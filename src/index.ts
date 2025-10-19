@@ -65,6 +65,7 @@ class App {
     this.app.use('/api/charts/generate', rateLimitMiddleware);
 
     // Static files serving (for favicons and other assets)
+    this.app.use(express.static('public'));
     this.app.use(express.static('dist'));
 
     // Body parsing middleware

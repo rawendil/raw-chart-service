@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc && npm run copy:static",
-    "copy:static": "mkdir -p dist && cp -r *.ico *.png *.svg *.webmanifest dist/ 2>/dev/null || true",
+    "copy:static": "mkdir -p dist && cp -r *.ico *.png *.svg *.webmanifest dist/ 2>/dev/null || true && mkdir -p public/js && cp node_modules/chart.js/dist/chart.umd.js public/js/chart.js && cp public/js/embed-chart.js dist/ && cp public/js/puppeteer-chart.js dist/",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "dev:watch": "nodemon src/index.ts",
