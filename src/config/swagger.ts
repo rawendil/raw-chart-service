@@ -259,8 +259,8 @@ const swaggerDefinition = {
 const options = {
   swaggerDefinition,
   apis: [
-    './src/routes/*.ts',
-    './src/index.ts',
+    './dist/routes/*.js',
+    './dist/index.js',
   ],
 };
 

@@ -19,16 +19,19 @@ import { rateLimitMiddleware } from './middleware/rateLimit';
 
 // Import services
 import { DatabaseService } from './services/database';
+import { RedisService } from './services/redis';
 import { Logger } from './utils/logger';
 
 class App {
   public app: express.Application;
   private databaseService: DatabaseService;
+  private redisService: RedisService;
   private logger: Logger;
 
   constructor() {
     this.app = express();
     this.databaseService = new DatabaseService();
+    this.redisService = new RedisService();
     this.logger = new Logger();
 
     this.initializeConfig();
@@ -36,6 +39,7 @@ class App {
     this.initializeRoutes();
     this.initializeErrorHandling();
     this.initializeDatabase();
+    this.initializeRedis();
   }
 
   private initializeConfig(): void {
@@ -76,12 +80,25 @@ class App {
   }
 
   private initializeRoutes(): void {
+    // Swagger JSON specification
+    this.app.get('/api/docs/json', (req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.send(swaggerSpec);
+    });
+
     // Swagger documentation
     this.app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       explorer: true,
       customCss: '.swagger-ui .topbar { display: none }',
       customSiteTitle: 'Chart Service API Documentation'
     }));
+
+    // Pass services to routes
+    this.app.use((req, res, next) => {
+      req.app.locals.databaseService = this.databaseService;
+      req.app.locals.redisService = this.redisService;
+      next();
+    });
 
     // API routes
     this.app.use('/api/charts', chartRoutes);
@@ -173,6 +190,17 @@ class App {
     }
   }
 
+  private async initializeRedis(): Promise<void> {
+    try {
+      await this.redisService.connect();
+      this.logger.info('Redis connected successfully');
+    } catch (error) {
+      this.logger.error('Failed to connect to Redis', error);
+      // Application can work without Redis, but without caching
+      this.logger.warn('Application running without Redis cache');
+    }
+  }
+
   public async start(): Promise<void> {
     const port = process.env.PORT || 3000;
 
@@ -201,6 +229,7 @@ class App {
   public async stop(): Promise<void> {
     this.logger.info('Shutting down server...');
     await this.databaseService.close();
+    await this.redisService.disconnect();
     process.exit(0);
   }
 }

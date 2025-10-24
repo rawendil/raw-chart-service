@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import { DatabaseService } from '../services/database';
 import { ChartGeneratorService } from '../services/chartGenerator';
+import { RedisService } from '../services/redis';
 import { authenticateBearerToken } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 import { GenerateChartRequest, UpdateChartRequest, ApiResponse, ChartResponse } from '../types/api';
@@ -9,9 +10,16 @@ import { Chart } from '../types/database';
 import { validateBody, validateParams, generateChartSchema, updateChartSchema } from '../middleware/validation';
 
 const router = Router();
-const databaseService = new DatabaseService();
-const chartGenerator = new ChartGeneratorService();
 const logger = new Logger();
+
+// Get services from app locals (set by middleware)
+const getServices = (req: Request) => {
+  const databaseService = req.app.locals.databaseService as DatabaseService;
+  const redisService = req.app.locals.redisService as RedisService;
+  const chartGenerator = new ChartGeneratorService(redisService);
+  
+  return { databaseService, redisService, chartGenerator };
+};
 
 // Generate a hash for chart ID
 function generateChartHash(): string {
@@ -68,6 +76,7 @@ function generateChartHash(): string {
  */
 router.post('/generate', authenticateBearerToken, validateBody(generateChartSchema), async (req: Request, res: Response): Promise<void> => {
    try {
+     const { databaseService } = getServices(req);
      const requestData = req.body;
 
      // Transform camelCase to snake_case for database
@@ -216,6 +225,7 @@ router.post('/generate', authenticateBearerToken, validateBody(generateChartSche
  */
 router.get('/:hash', async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService } = getServices(req);
     const { hash } = req.params;
 
     // Get chart from database
@@ -314,6 +324,7 @@ router.get('/:hash', async (req: Request, res: Response): Promise<void> => {
  */
 router.get('/:hash/png', async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService, chartGenerator } = getServices(req);
     const { hash } = req.params;
 
     // Get chart data from database
@@ -372,6 +383,7 @@ router.get('/:hash/png', async (req: Request, res: Response): Promise<void> => {
 
 router.get('/:hash/embed', async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService } = getServices(req);
     const { hash } = req.params;
 
     // Get chart data from database
@@ -520,6 +532,7 @@ router.get('/:hash/embed', async (req: Request, res: Response): Promise<void> =>
  */
 router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService } = getServices(req);
     const { hash } = req.params;
 
     // Get chart data from database
@@ -647,6 +660,7 @@ router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => 
  */
 router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService, chartGenerator } = getServices(req);
     const { hash } = req.params;
     const requestData = req.body;
 
@@ -770,6 +784,9 @@ router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), a
       json_url: `${baseUrl}/api/charts/${chart.chart_hash}/json`
     };
 
+    // Invalidate cache for the updated chart
+    await chartGenerator.invalidateChartCache(hash);
+
     logger.info('Chart updated successfully', {
       chartId: chart.id,
       chartHash: hash
@@ -840,6 +857,7 @@ router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), a
  */
 router.delete('/:hash', authenticateBearerToken, async (req: Request, res: Response): Promise<void> => {
   try {
+    const { databaseService, chartGenerator } = getServices(req);
     const { hash } = req.params;
 
     // Check if chart exists
@@ -856,6 +874,9 @@ router.delete('/:hash', authenticateBearerToken, async (req: Request, res: Respo
 
     // Delete chart
     await databaseService.query('DELETE FROM charts WHERE chart_hash = $1', [hash]);
+
+    // Invalidate cache for the deleted chart
+    await chartGenerator.invalidateChartCache(hash);
 
     logger.info('Chart deleted successfully', {
       chartHash: hash

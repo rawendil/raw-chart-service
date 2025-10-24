@@ -2,15 +2,38 @@ import puppeteer from 'puppeteer';
 import { ChartType, ChartData, ChartConfiguration } from 'chart.js';
 import { Logger } from '../utils/logger';
 import { ChartType as CustomChartType, Theme } from '../types/database';
+import { RedisService } from './redis';
+import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export class ChartGeneratorService {
   private logger: Logger;
+  private redisService: RedisService;
 
-  constructor() {
+  constructor(redisService?: RedisService) {
     this.logger = new Logger();
+    this.redisService = redisService || new RedisService();
     this.logger.info('Chart generator service initialized');
+  }
+
+  private generateCacheKey(
+    chartType: CustomChartType,
+    data: ChartData,
+    options: {
+      width: number;
+      height: number;
+      theme: Theme;
+      title?: string;
+      backgroundColor: string;
+    }
+  ): string {
+    const dataHash = crypto
+      .createHash('md5')
+      .update(JSON.stringify({ data, options }))
+      .digest('hex');
+    
+    return `chart_cache:${chartType}:${options.width}:${options.height}:${options.theme}:${dataHash}`;
   }
 
   async generateChart(
@@ -24,16 +47,42 @@ export class ChartGeneratorService {
       backgroundColor?: string;
     } = {}
   ): Promise<Buffer> {
+    const {
+      width = 800,
+      height = 600,
+      theme = 'light',
+      title,
+      backgroundColor = theme === 'dark' ? '#1a1a1a' : '#ffffff'
+    } = options;
+
+    const cacheKey = this.generateCacheKey(chartType, data, { width, height, theme, title, backgroundColor });
+    
+    // Check cache first
+    try {
+      // Check if Redis is available before attempting operations
+      const redisAvailable = await this.redisService.isAvailable();
+      if (redisAvailable) {
+        const cachedChart = await this.redisService.get(cacheKey);
+        if (cachedChart) {
+          this.logger.info('Chart served from cache', { chartType, cacheKey });
+          return cachedChart;
+        }
+      } else {
+        this.logger.warn('Redis is not available, generating new chart without cache');
+      }
+    } catch (error) {
+      this.logger.warn('Cache retrieval failed, generating new chart', error);
+      // Try to reconnect to Redis if connection is lost
+      try {
+        await this.redisService.disconnect();
+        await this.redisService.connect();
+      } catch (reconnectError) {
+        this.logger.warn('Failed to reconnect to Redis', reconnectError);
+      }
+    }
+
     let browser;
     try {
-      const {
-        width = 800,
-        height = 600,
-        theme = 'light',
-        title,
-        backgroundColor = theme === 'dark' ? '#1a1a1a' : '#ffffff'
-      } = options;
-
       this.logger.info('Generating chart with Puppeteer', {
         type: chartType,
         width,
@@ -42,9 +91,10 @@ export class ChartGeneratorService {
         datasets: data.datasets.length
       });
 
-      // Launch browser
+      // Launch browser with path to Chromium in Alpine
       browser = await puppeteer.launch({
-        headless: true,
+        headless: 'new',
+        executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser',
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -52,15 +102,29 @@ export class ChartGeneratorService {
           '--disable-accelerated-2d-canvas',
           '--no-first-run',
           '--no-zygote',
-          '--single-process',
-          '--disable-gpu'
-        ]
+          '--disable-gpu',
+          '--disable-background-timer-throttling',
+          '--disable-backgrounding-occluded-windows',
+          '--disable-renderer-backgrounding',
+          '--disable-extensions',
+          '--disable-plugins',
+          '--disable-default-apps',
+          '--disable-translate',
+          '--disable-device-discovery-notifications',
+          '--disable-software-rasterizer',
+          '--disable-background-networking'
+        ],
+        timeout: 30000 // 30 seconds timeout
       });
 
       const page = await browser.newPage();
 
-      // Set viewport
-      await page.setViewport({ width, height });
+      // Set viewport and handle potential errors
+      try {
+        await page.setViewport({ width, height });
+      } catch (viewportError) {
+        this.logger.warn('Failed to set viewport, continuing with default', viewportError);
+      }
 
       // Create Chart.js HTML
       const chartJsConfig = this.createChartJsConfig(chartType, data, {
@@ -79,30 +143,99 @@ export class ChartGeneratorService {
         backgroundColor
       });
 
-      // Set page content
-      await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+      // Set page content with better error handling
+      try {
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0', timeout: 15000 });
+      } catch (contentError) {
+        this.logger.warn('Failed to load content with networkidle0, trying with domcontentloaded', contentError);
+        await page.setContent(htmlContent, { waitUntil: 'domcontentloaded', timeout: 10000 });
+      }
 
-      // Wait for chart to render
-      await page.waitForSelector('#chart-container canvas', { timeout: 10000 });
+      // Wait for chart to render with retry logic
+      let chartRendered = false;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!chartRendered && retryCount < maxRetries) {
+        try {
+          await page.waitForSelector('#chart-container canvas', { timeout: 5000 });
+          chartRendered = true;
+        } catch (selectorError) {
+          retryCount++;
+          this.logger.warn(`Chart render attempt ${retryCount} failed`, selectorError);
+          if (retryCount >= maxRetries) {
+            throw new Error(`Failed to render chart after ${maxRetries} attempts`);
+          }
+          // Wait a bit before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
 
-      // Take screenshot
-      const screenshotBuffer = await page.screenshot({
-        clip: { x: 0, y: 0, width, height },
-        type: 'png'
-      });
+      // Take screenshot with error handling
+      let screenshotBuffer;
+      try {
+        screenshotBuffer = await page.screenshot({
+          clip: { x: 0, y: 0, width, height },
+          type: 'png',
+          omitBackground: false
+        });
+      } catch (screenshotError) {
+        this.logger.error('Failed to take screenshot', screenshotError);
+        throw new Error(`Screenshot failed: ${screenshotError instanceof Error ? screenshotError.message : 'Unknown error'}`);
+      }
+
+      // Store in cache for 1 hour
+      try {
+        // Check if Redis is available before attempting operations
+        const redisAvailable = await this.redisService.isAvailable();
+        if (redisAvailable) {
+          await this.redisService.set(cacheKey, screenshotBuffer, 3600);
+        } else {
+          this.logger.warn('Redis is not available, skipping cache storage');
+        }
+      } catch (error) {
+        this.logger.warn('Failed to cache chart', error);
+        // Try to reconnect to Redis if connection is lost
+        try {
+          await this.redisService.disconnect();
+          await this.redisService.connect();
+          // Retry caching
+          await this.redisService.set(cacheKey, screenshotBuffer, 3600);
+        } catch (reconnectError) {
+          this.logger.warn('Failed to reconnect to Redis for caching', reconnectError);
+        }
+      }
 
       this.logger.info('Chart generated successfully', {
         size: screenshotBuffer.length,
-        type: chartType
+        type: chartType,
+        cached: true
       });
 
       return screenshotBuffer;
     } catch (error) {
       this.logger.error('Failed to generate chart with Puppeteer', error);
-      throw new Error(`Chart generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Chart generation failed';
+      if (error instanceof Error) {
+        if (error.message.includes('Target closed')) {
+          errorMessage = 'Browser target closed unexpectedly. This may be due to resource constraints or timeout.';
+        } else if (error.message.includes('Protocol error')) {
+          errorMessage = 'Browser protocol error. The browser instance may have crashed.';
+        } else {
+          errorMessage = `Chart generation failed: ${error.message}`;
+        }
+      }
+      
+      throw new Error(errorMessage);
     } finally {
       if (browser) {
-        await browser.close();
+        try {
+          await browser.close();
+        } catch (closeError) {
+          this.logger.warn('Failed to close browser properly', closeError);
+        }
       }
     }
   }
@@ -332,5 +465,23 @@ export class ChartGeneratorService {
     }
 
     return baseOptions;
+  }
+
+  async invalidateChartCache(chartHash: string): Promise<void> {
+    try {
+      const pattern = `chart_cache:*:*:*:*:*${chartHash}*`;
+      await this.redisService.delPattern(pattern);
+    } catch (error) {
+      this.logger.warn('Failed to invalidate chart cache', error);
+    }
+  }
+
+  async invalidateAllCache(): Promise<void> {
+    try {
+      const pattern = 'chart_cache:*';
+      await this.redisService.delPattern(pattern);
+    } catch (error) {
+      this.logger.warn('Failed to invalidate all chart cache', error);
+    }
   }
 }
