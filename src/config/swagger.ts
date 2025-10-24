@@ -6,20 +6,12 @@ const swaggerDefinition = {
     title: 'Chart Service API',
     version: '1.0.0',
     description: 'A microservice for generating, storing, and serving interactive charts',
-    contact: {
-      name: 'API Support',
-      email: 'support@example.com',
-    },
   },
   servers: [
     {
-      url: 'http://localhost:3000',
+      url: `http://${process.env.HOST || 'localhost'}:3000`,
       description: 'Development server',
-    },
-    {
-      url: 'https://api.example.com',
-      description: 'Production server',
-    },
+    }
   ],
   components: {
     securitySchemes: {

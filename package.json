@@ -18,7 +18,9 @@
     "podman:build": "podman build -t chart-service .",
     "podman:run": "podman run -p 3000:3000 chart-service",
     "podman:compose:up": "podman-compose up -d",
-    "podman:compose:down": "podman-compose down"
+    "podman:compose:down": "podman-compose down",
+    "podman:rebuild": "podman-compose down && podman-compose up -d --build",
+    "podman:logs": "podman-compose logs -f"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

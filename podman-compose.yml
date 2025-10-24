@@ -45,6 +45,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
+      HOST: test.serwer.com
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: chart_service
