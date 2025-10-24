@@ -12,9 +12,8 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d chart_service"]
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "chart_service"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -38,7 +37,7 @@ services:
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Containerfile
     container_name: chart-service-app
     restart: unless-stopped
     ports:
@@ -65,12 +64,6 @@ services:
     volumes:
       - ./logs:/app/logs
       - ./.env:/app/.env
-    healthcheck:
-      test: ["CMD", "node", "-e", "const http=require('http');const req=http.request({hostname:'localhost',port:3000,path:'/api/health',method:'GET'},res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.end();"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     shm_size: 256m
     deploy:
       resources:

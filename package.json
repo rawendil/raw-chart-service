@@ -13,8 +13,12 @@
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "docker:build": "docker build -t chart-service .",
-    "docker:run": "docker run -p 3000:3000 chart-service"
+    "docker:build": "podman build -t chart-service .",
+    "docker:run": "podman run -p 3000:3000 chart-service",
+    "podman:build": "podman build -t chart-service .",
+    "podman:run": "podman run -p 3000:3000 chart-service",
+    "podman:compose:up": "podman-compose up -d",
+    "podman:compose:down": "podman-compose down"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

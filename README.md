@@ -11,7 +11,7 @@ A high-performance microservice for generating, storing, and serving interactive
 - **Chart Generation**: Chart.js + Puppeteer (for PNG exports)
 - **Authentication**: JWT Bearer Token
 - **Documentation**: Swagger/OpenAPI
-- **Containerization**: Docker with multi-stage builds
+- **Containerization**: Podman with multi-stage builds (Docker compatible)
 - **Security**: Helmet, CORS, Rate Limiting
 
 ## Features
@@ -23,11 +23,11 @@ A high-performance microservice for generating, storing, and serving interactive
 - RESTful API with comprehensive documentation
 - JWT-based authentication
 - Redis caching for improved performance
-- Docker support for easy deployment
+- Podman support for easy deployment (Docker compatible)
 
 ## Quick Start
 
-### Using Docker Compose (Recommended)
+### Using Podman Compose (Recommended)
 
 1. Clone the repository:
 
@@ -39,7 +39,7 @@ A high-performance microservice for generating, storing, and serving interactive
 2. Start all services:
 
     ```bash
-    docker-compose up -d
+    podman-compose up -d
     ```
 
 This will start:
@@ -66,10 +66,10 @@ This will start:
 3. Start PostgreSQL and Redis (required):
 
     ```bash
-    # Using Docker
-    docker run -d --name postgres -e POSTGRES_DB=chart_service -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5433:5432 postgres:15-alpine
+    # Using Podman
+    podman run -d --name postgres -e POSTGRES_DB=chart_service -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5433:5432 postgres:15-alpine
 
-    docker run -d --name redis -p 6380:6379 redis:7-alpine
+    podman run -d --name redis -p 6380:6379 redis:7-alpine
     ```
 
 4. Build and run the application:
@@ -130,29 +130,33 @@ Key environment variables (see `.env.example` for complete list):
 - `ALLOWED_ORIGINS` - CORS allowed origins
 - `LOG_LEVEL` - Logging level
 
-## Docker Deployment
+## Podman Deployment
 
-### Build Docker Image
+### Build Podman Image
 
 ```bash
-docker build -t chart-service .
+podman build -t chart-service .
 ```
 
-### Run with Docker
+### Run with Podman
 
 ```bash
-docker run -p 3000:3000 \
+podman run -p 3000:3000 \
   -e DB_HOST=your-db-host \
   -e DB_PASSWORD=your-db-password \
   -e BEARER_TOKEN=your-secret-token \
   chart-service
 ```
 
-### Using Docker Compose
+### Using Podman Compose
 
 ```bash
-docker-compose up -d
+podman-compose up -d
 ```
+
+### Docker Compatibility
+
+This project is also compatible with Docker. If you prefer to use Docker instead of Podman, simply replace `podman` commands with `docker` and `podman-compose` with `docker-compose`.
 
 ## Development
 
@@ -164,6 +168,12 @@ docker-compose up -d
 - `npm test` - Run tests
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Fix linting issues
+- `npm run podman:build` - Build Podman image
+- `npm run podman:run` - Run Podman container
+- `npm run podman:compose:up` - Start services with Podman Compose
+- `npm run podman:compose:down` - Stop services with Podman Compose
+- `npm run docker:build` - Build Docker image (for Docker users)
+- `npm run docker:run` - Run Docker container (for Docker users)
 
 ### Project Structure
 
