@@ -9,7 +9,7 @@ A high-performance microservice for generating, storing, and serving interactive
 - **Database**: PostgreSQL
 - **Caching**: Redis (optional)
 - **Chart Generation**: Chart.js + Puppeteer (for PNG exports)
-- **Authentication**: JWT Bearer Token
+- **Authentication**: API Key (x-api-key header)
 - **Documentation**: Swagger/OpenAPI
 - **Containerization**: Podman with multi-stage builds (Docker compatible)
 - **Security**: Helmet, CORS, Rate Limiting
@@ -21,7 +21,7 @@ A high-performance microservice for generating, storing, and serving interactive
 - Export charts as PNG images
 - Embed charts in external websites
 - RESTful API with comprehensive documentation
-- JWT-based authentication
+- API Key authentication (x-api-key header)
 - Redis caching for improved performance
 - Podman support for easy deployment (Docker compatible)
 
@@ -108,15 +108,16 @@ Once the service is running, you can access:
 - `GET /api/health` - Basic health check
 - `GET /api/health/detailed` - Detailed health information
 
+
 ## Authentication
 
-The API uses Bearer Token authentication. To access protected endpoints:
+The API uses API Key authentication. To access protected endpoints:
 
-1. Include the token in the Authorization header:
+1. Include your API key in the `x-api-key` header:
 
-    `Authorization: Bearer your-bearer-token`
+  `x-api-key: your-api-key`
 
-2. Set the `BEARER_TOKEN` environment variable in your `.env` file.
+2. Set the `API_KEY` environment variable in your `.env` file.
 
 ## Environment Variables
 

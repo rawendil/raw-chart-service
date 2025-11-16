@@ -3,29 +3,18 @@ import { Logger } from '../utils/logger';
 
 const logger = new Logger();
 
-// Simple bearer token authentication middleware
-export const authenticateBearerToken = async (
+// API Key authentication middleware
+export const authenticateApiKey = async (
   req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
   try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+    const apiKey = req.header('x-api-key');
+    const expectedApiKey = process.env.API_KEY;
 
-    if (!token) {
-      res.status(401).json({
-        success: false,
-        error: 'Bearer token required'
-      });
-      return;
-    }
-
-    // Check if token matches the expected bearer token from environment
-    const expectedToken = process.env.BEARER_TOKEN;
-
-    if (!expectedToken) {
-      logger.error('BEARER_TOKEN not configured in environment');
+    if (!expectedApiKey) {
+      logger.error('API_KEY not configured in environment');
       res.status(500).json({
         success: false,
         error: 'Server configuration error'
@@ -33,18 +22,18 @@ export const authenticateBearerToken = async (
       return;
     }
 
-    if (token !== expectedToken) {
+    if (!apiKey || apiKey !== expectedApiKey) {
       res.status(401).json({
         success: false,
-        error: 'Invalid bearer token'
+        error: 'Invalid or missing API key'
       });
       return;
     }
 
-    logger.debug('Bearer token authentication successful');
+    logger.debug('API key authentication successful');
     next();
   } catch (error) {
-    logger.error('Bearer token authentication error', error);
+    logger.error('API key authentication error', error);
     res.status(401).json({
       success: false,
       error: 'Authentication failed'

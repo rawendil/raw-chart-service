@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { DatabaseService } from '../services/database';
 import { ChartGeneratorService } from '../services/chartGenerator';
 import { RedisService } from '../services/redis';
-import { authenticateBearerToken } from '../middleware/auth';
+import { authenticateApiKey } from '../middleware/auth';
 import { Logger } from '../utils/logger';
 import { GenerateChartRequest, UpdateChartRequest, ApiResponse, ChartResponse } from '../types/api';
 import { Chart } from '../types/database';
@@ -35,7 +35,7 @@ function generateChartHash(): string {
  *     description: Creates a new chart with the provided data and configuration. Requires authentication.
  *     tags: [Charts]
  *     security:
- *       - BearerAuth: []
+ *       - ApiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -74,7 +74,7 @@ function generateChartHash(): string {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/generate', authenticateBearerToken, validateBody(generateChartSchema), async (req: Request, res: Response): Promise<void> => {
+router.post('/generate', authenticateApiKey, validateBody(generateChartSchema), async (req: Request, res: Response): Promise<void> => {
    try {
      const { databaseService } = getServices(req);
      const requestData = req.body;
@@ -587,7 +587,7 @@ router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => 
  *     description: Updates chart properties. Only the chart owner can perform this operation.
  *     tags: [Charts]
  *     security:
- *       - BearerAuth: []
+ *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: hash
@@ -658,7 +658,7 @@ router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => 
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), async (req: Request, res: Response): Promise<void> => {
+router.put('/:hash', authenticateApiKey, validateBody(updateChartSchema), async (req: Request, res: Response): Promise<void> => {
   try {
     const { databaseService, chartGenerator } = getServices(req);
     const { hash } = req.params;
@@ -814,7 +814,7 @@ router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), a
  *     description: Deletes a chart. Only the chart owner can perform this operation.
  *     tags: [Charts]
  *     security:
- *       - BearerAuth: []
+ *       - ApiKeyAuth: []
  *     parameters:
  *       - in: path
  *         name: hash
@@ -855,7 +855,7 @@ router.put('/:hash', authenticateBearerToken, validateBody(updateChartSchema), a
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/:hash', authenticateBearerToken, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:hash', authenticateApiKey, async (req: Request, res: Response): Promise<void> => {
   try {
     const { databaseService, chartGenerator } = getServices(req);
     const { hash } = req.params;
