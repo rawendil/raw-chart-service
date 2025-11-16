@@ -1,3 +1,6 @@
+# License
+
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 # Chart Service
 
 A high-performance microservice for generating, storing, and serving interactive charts using Chart.js and Node.js.
@@ -127,7 +130,6 @@ Key environment variables (see `.env.example` for complete list):
 - `PORT` - Server port (default: 3000)
 - `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` - Database configuration
 - `REDIS_URL` - Redis connection URL
-- `BEARER_TOKEN` - Authentication token
 - `ALLOWED_ORIGINS` - CORS allowed origins
 - `LOG_LEVEL` - Logging level
 
@@ -145,7 +147,6 @@ podman build -t chart-service .
 podman run -p 3000:3000 \
   -e DB_HOST=your-db-host \
   -e DB_PASSWORD=your-db-password \
-  -e BEARER_TOKEN=your-secret-token \
   chart-service
 ```
 
