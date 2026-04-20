@@ -1,233 +1,74 @@
-# License
-
-This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.
 # RawChart
 
 A high-performance microservice for generating, storing, and serving interactive charts using Chart.js and Node.js.
 
-## Tech Stack
-
-- **Backend**: Node.js with TypeScript
-- **Framework**: Express.js
-- **Database**: PostgreSQL
-- **Caching**: Redis (optional)
-- **Chart Generation**: Chart.js + Puppeteer (for PNG exports)
-- **Authentication**: API Key (x-api-key header)
-- **Documentation**: Swagger/OpenAPI
-- **Containerization**: Docker with multi-stage builds
-- **Security**: Helmet, CORS, Rate Limiting
-
 ## Features
 
-- Generate interactive charts with various types (bar, line, pie, etc.)
-- Store chart configurations and data
-- Export charts as PNG images
-- Embed charts in external websites
-- RESTful API with comprehensive documentation
-- API Key authentication (x-api-key header)
-- Redis caching for improved performance
-- Docker support for easy deployment
+- Interactive charts (bar, line, pie, and more) stored and served via REST API
+- PNG export and embeddable HTML output
+- API-key authentication, rate limiting, CORS, Helmet
+- Redis caching and Swagger/OpenAPI docs
+- Dockerized with multi-stage builds
+
+## Tech Stack
+
+Node.js · TypeScript · Express · PostgreSQL · Redis · Chart.js + Puppeteer · Docker
 
 ## Quick Start
 
-### Using Docker Compose (Recommended)
-
-1. Clone the repository:
-
-    ```bash
-    git clone <repository-url>
-    cd rawchart-service
-    ```
-
-2. Start all services:
-
-    ```bash
-    docker compose up -d
-    ```
-
-This will start:
-
-- PostgreSQL database on port 5433
-- Redis cache on port 6380
-- RawChart API on port 3000
-
-### Manual Installation
-
-1. Install dependencies:
-
-    ```bash
-    npm install
-    ```
-
-2. Set up environment variables:
-
-    ```bash
-    cp .env.example .env
-    # Edit .env with your configuration
-    ```
-
-3. Start PostgreSQL and Redis (required):
-
-    ```bash
-    # Using Docker
-    docker run -d --name postgres -e POSTGRES_DB=rawchart_service -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5433:5432 postgres:15-alpine
-
-    docker run -d --name redis -p 6380:6379 redis:7-alpine
-    ```
-
-4. Build and run the application:
-
 ```bash
-# Development
-npm run dev
-
-# Production
-npm run build
-npm start
-```
-
-## API Documentation
-
-Once the service is running, you can access:
-
-- **API Documentation**: `http://localhost:3000/api/docs`
-- **Health Check**: `http://localhost:3000/api/health`
-- **API Root**: `http://localhost:3000/`
-
-### Main API Endpoints
-
-#### Charts
-
-- `POST /api/charts/generate` - Generate a new chart (requires authentication)
-- `GET /api/charts/:hash` - Get chart information
-- `GET /api/charts/:hash/png` - Get chart as PNG image
-- `GET /api/charts/:hash/embed` - Get embeddable HTML
-- `GET /api/charts/:hash/json` - Get chart data as JSON
-- `PUT /api/charts/:hash` - Update chart (requires authentication)
-- `DELETE /api/charts/:hash` - Delete chart (requires authentication)
-
-#### Health
-
-- `GET /api/health` - Basic health check
-- `GET /api/health/detailed` - Detailed health information
-
-
-## Authentication
-
-The API uses API Key authentication. To access protected endpoints:
-
-1. Include your API key in the `x-api-key` header:
-
-  `x-api-key: your-api-key`
-
-2. Set the `API_KEY` environment variable in your `.env` file.
-
-## Environment Variables
-
-Key environment variables (see `.env.example` for complete list):
-
-- `NODE_ENV` - Environment (development/production)
-- `PORT` - Server port (default: 3000)
-- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` - Database configuration
-- `REDIS_URL` - Redis connection URL
-- `ALLOWED_ORIGINS` - CORS allowed origins
-- `LOG_LEVEL` - Logging level
-
-## Docker Deployment
-
-### Build Docker Image
-
-```bash
-docker build -t rawchart-service .
-```
-
-### Run with Docker
-
-```bash
-docker run -p 3000:3000 \
-  -e DB_HOST=your-db-host \
-  -e DB_PASSWORD=your-db-password \
-  rawchart-service
-```
-
-### Using Docker Compose
-
-```bash
+git clone <repository-url>
+cd rawchart-service
+cp .env.example .env   # edit secrets
 docker compose up -d
 ```
 
-## Development
+Services start on:
 
-### Scripts
+- API: <http://localhost:3000>
+- Swagger docs: <http://localhost:3000/api/docs>
+- PostgreSQL: `localhost:5433`
+- Redis: `localhost:6380`
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm start` - Start production server
-- `npm test` - Run tests
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix linting issues
-- `npm run docker:build` - Build Docker image
-- `npm run docker:run` - Run Docker container
-- `npm run docker:compose:up` - Start services with Docker Compose
-- `npm run docker:compose:down` - Stop services with Docker Compose
-- `npm run docker:rebuild` - Rebuild and restart services
-- `npm run docker:logs` - Follow Docker Compose logs
+Health check: `curl http://localhost:3000/api/health`
 
-### Project Structure
+## Configuration
 
-```bash
-src/
-├── config/          # Configuration files
-├── middleware/      # Express middleware
-├── routes/          # API routes
-├── services/        # Business logic services
-├── types/           # TypeScript type definitions
-├── utils/           # Utility functions
-└── index.ts         # Application entry point
+All settings are loaded from `.env` — see [.env.example](./.env.example) for the complete, documented list. Most important:
 
-public/
-└── js/              # Client-side JavaScript for charts
-```
+| Variable | Purpose |
+|----------|---------|
+| `API_KEY` | Required for protected endpoints (`x-api-key` header) |
+| `DB_*` | PostgreSQL connection |
+| `REDIS_URL` | Redis connection string |
+| `ALLOWED_ORIGINS` | CORS allowlist |
+| `PORT` | HTTP port (default `3000`) |
 
-## Chart Usage Examples
+## Usage
 
-### Generate a Chart
+Generate a chart:
 
 ```bash
 curl -X POST http://localhost:3000/api/charts/generate \
   -H "Content-Type: application/json" \
-  -H "x-api-key: your-api-key" \
+  -H "x-api-key: $API_KEY" \
   -d '{
     "title": "Sales Report",
-    "description": "Monthly sales data",
     "chartType": "bar",
     "data": {
       "labels": ["Jan", "Feb", "Mar"],
-      "datasets": [{
-        "label": "Sales",
-        "data": [100, 200, 150]
-      }]
-    },
-    "width": 800,
-    "height": 600,
-    "theme": "light",
-    "isPublic": true
+      "datasets": [{ "label": "Sales", "data": [100, 200, 150] }]
+    }
   }'
 ```
 
-### Access a Chart
+Full endpoint reference, authentication details, and more examples: [docs/api.md](./docs/api.md).
 
-```bash
-# Get chart info
-curl http://localhost:3000/api/charts/{chart-hash}
+## Development
 
-# Get PNG image
-curl http://localhost:3000/api/charts/{chart-hash}/png --output chart.png
-
-# Get embed HTML
-curl http://localhost:3000/api/charts/{chart-hash}/embed
-```
+- Local setup without Docker, scripts, and project layout: [docs/development.md](./docs/development.md)
+- Interactive API explorer: <http://localhost:3000/api/docs>
 
 ## License
 
-MIT
+MIT — see [LICENSE](./LICENSE).
