@@ -13,14 +13,12 @@
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "docker:build": "podman build -t chart-service .",
-    "docker:run": "podman run -p 3000:3000 chart-service",
-    "podman:build": "podman build -t chart-service .",
-    "podman:run": "podman run -p 3000:3000 chart-service",
-    "podman:compose:up": "podman-compose up -d",
-    "podman:compose:down": "podman-compose down",
-    "podman:rebuild": "podman-compose down && podman-compose up -d --build",
-    "podman:logs": "podman-compose logs -f"
+    "docker:build": "docker build -t chart-service .",
+    "docker:run": "docker run -p 3000:3000 chart-service",
+    "docker:compose:up": "docker compose up -d",
+    "docker:compose:down": "docker compose down",
+    "docker:rebuild": "docker compose down && docker compose up -d --build",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -43,7 +41,8 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "typedi": "^0.10.0",
-    "winston": "^3.11.0"
+    "winston": "^3.11.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
