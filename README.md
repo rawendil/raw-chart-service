@@ -196,7 +196,7 @@ public/
 ```bash
 curl -X POST http://localhost:3000/api/charts/generate \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-token" \
+  -H "x-api-key: your-api-key" \
   -d '{
     "title": "Sales Report",
     "description": "Monthly sales data",
