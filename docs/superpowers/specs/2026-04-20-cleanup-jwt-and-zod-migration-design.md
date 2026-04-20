@@ -31,21 +31,29 @@ New structure under `src/`:
 ```
 src/
 ├── config/
-│   ├── env.ts          [NEW]        Zod schema + typed `env` export
-│   └── swagger.ts      unchanged
+│   ├── env.ts          [NEW]        Zod schema + typed `env` export; also owns dotenv.config()
+│   └── swagger.ts      [EDITED]     reads env.HOST
 ├── middleware/
 │   ├── validation.ts   [REWRITTEN]  Joi → Zod
-│   ├── errorHandler.ts [EDITED]     JWT handlers removed
-│   ├── auth.ts         [EDITED]     reads env.API_KEY
+│   ├── errorHandler.ts [EDITED]     JWT handlers removed, reads env.NODE_ENV
+│   ├── auth.ts         [EDITED]     reads env.API_KEY, Authorization header dropped from CORS
 │   └── ...
+├── routes/
+│   └── health.ts       [EDITED]     reads env.NODE_ENV
 ├── services/
-│   └── database.ts     [EDITED]     reads env.DB_*, no fallbacks
+│   ├── database.ts     [EDITED]     reads env.DB_*, no fallbacks
+│   ├── redis.ts        [EDITED]     reads env.REDIS_URL
+│   └── chartGenerator.ts [EDITED]   reads env.CHROMIUM_PATH
 ├── types/
 │   └── api.ts          [REWRITTEN]  types inferred from Zod schemas
-└── index.ts            [EDITED]     imports env.ts first so validation runs at startup
+├── utils/
+│   └── logger.ts       [EDITED]     reads env.LOG_LEVEL, env.NODE_ENV
+└── index.ts            [EDITED]     imports env.ts first; reads env.PORT, env.ALLOWED_ORIGINS
 ```
 
-**Data-flow change.** Before: `process.env.DB_PASSWORD || 'password'` scattered across services, so missing env yields a silently misconfigured runtime. After: a single import of `env.ts` parses `process.env` eagerly at module load; if any required variable is missing or invalid, the process exits with code 1 before Express, DB, or Redis are touched. All consumers import the typed `env` object rather than reading `process.env`.
+**Data-flow change.** Before: `process.env.DB_PASSWORD || 'password'` (and similar patterns for other variables) scattered across 10 source files, so missing env yields a silently misconfigured runtime. After: a single import of `env.ts` calls `dotenv.config()` and parses `process.env` eagerly at module load; if any required variable is missing or invalid, the process exits with code 1 before Express, DB, or Redis are touched. All consumers import the typed `env` object rather than reading `process.env`.
+
+**Import-order invariant.** `env.ts` is the first import in `src/index.ts`. `env.ts` itself starts with `import 'dotenv/config'` (side-effect import that calls `dotenv.config()` synchronously) so that `.env` values are loaded before the Zod schema parses `process.env`. Other modules must never read `process.env` directly; they import `env` from `src/config/env.ts`.
 
 **Separation of concerns.**
 - `config/env.ts` — environment variable validation and typing.
@@ -55,12 +63,14 @@ src/
 ## Component: `src/config/env.ts`
 
 ```ts
+import 'dotenv/config'; // side-effect import: loads .env before schema parses
 import { z } from 'zod';
 
 const envSchema = z.object({
   // Server
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
+  HOST: z.string().default('localhost'), // used by src/config/swagger.ts
   ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
 
   // Database — secrets have no default; presence enforced.
@@ -79,8 +89,11 @@ const envSchema = z.object({
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'http', 'verbose', 'debug']).default('info'),
 
-  // Redis — optional; app degrades gracefully without cache.
-  REDIS_URL: z.string().url().optional(),
+  // Redis — optional. Empty string treated as unset (graceful degradation preserved).
+  REDIS_URL: z
+    .union([z.string().url(), z.literal('')])
+    .optional()
+    .transform(v => (v ? v : undefined)),
 
   // Puppeteer
   CHROMIUM_PATH: z.string().default('/usr/bin/chromium-browser'),
@@ -109,8 +122,10 @@ export type Env = z.infer<typeof envSchema>;
 - `safeParse` + `process.exit(1)` rather than `parse` throwing. Rationale: we want a controlled, human-readable log listing every missing/invalid variable at once, not a Zod stacktrace mid-bootstrap.
 - `z.coerce.number()` handles the fact that `process.env` values are always strings.
 - No defaults for `DB_PASSWORD` or `API_KEY`; missing them causes exit.
-- `API_KEY.min(16)` is a heuristic guard against placeholder values. Chosen as the smallest threshold that blocks obvious placeholders (`"x"`, `"test"`) without forcing long keys in development.
-- `REDIS_URL.optional()` preserves current graceful-degradation behaviour.
+- `API_KEY.min(16)` is a heuristic guard against placeholder values. Chosen as the smallest threshold that blocks obvious placeholders (`"x"`, `"test"`) without forcing long keys in development. **Operational note:** any existing deployment with a shorter `API_KEY` will fail to start after upgrade (see Risks).
+- `REDIS_URL` accepts either a valid URL or an empty string (coerced to `undefined`). Missing/empty preserves current graceful-degradation behaviour; a malformed non-empty value fails fast at startup.
+- `HOST` is added because `src/config/swagger.ts` reads `process.env.HOST` and `podman-compose.yml` sets it.
+- `dotenv/config` is imported inside `env.ts` (not in `index.ts`), so any module that imports `env` gets a loaded `.env` even if `index.ts` has not run (e.g. future tools/scripts).
 - Defaults for non-secret variables (ports, timeouts, origins) are retained for ergonomics.
 - `BCRYPT_ROUNDS` is removed from `.env.example` as bcrypt is being removed.
 
@@ -265,7 +280,37 @@ Import `env.API_KEY` directly. Remove the `if (!expectedApiKey) return 500` bran
 
 ### `src/middleware/errorHandler.ts`
 
-Remove the `JsonWebTokenError` and `TokenExpiredError` branches (lines 47–57 in current file). Mongoose branches are left in place (out of scope).
+- Remove the `JsonWebTokenError` and `TokenExpiredError` branches (lines 47–57 in current file).
+- Replace `process.env.NODE_ENV === 'development'` at line 61 with `env.NODE_ENV === 'development'`.
+- Mongoose branches (`CastError`, `MongoError`, `ValidationError`) are left in place (out of scope — project uses `pg`, these are dead but not part of this cleanup).
+
+### `src/index.ts`
+
+- Add `import './config/env'` as the **first** import, before anything else.
+- Remove the existing `dotenv.config()` call from `initializeConfig()` — now owned by `env.ts`.
+- Replace `process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000']` (line 56) with `env.ALLOWED_ORIGINS.split(',')`.
+- Replace `process.env.PORT || 3000` (line 206) with `env.PORT`.
+- Update `allowedHeaders` in CORS config (line 59): drop `'Authorization'`, keep `'Content-Type'`, add `'x-api-key'`. This aligns with the API-key-only authentication model.
+
+### `src/services/redis.ts`
+
+Replace `process.env.REDIS_URL || 'redis://localhost:6379'` (line 11) with `env.REDIS_URL ?? 'redis://localhost:6379'`. The local fallback is acceptable here because Redis is optional and `env.REDIS_URL` is validated (empty/unset → `undefined`, otherwise valid URL).
+
+### `src/services/chartGenerator.ts`
+
+Replace `process.env.CHROMIUM_PATH || '/usr/bin/chromium-browser'` (line 97) with `env.CHROMIUM_PATH` (default in schema already handles the fallback).
+
+### `src/routes/health.ts`
+
+Replace `process.env.NODE_ENV === 'development'` at lines 85 and 174 with `env.NODE_ENV === 'development'`.
+
+### `src/utils/logger.ts`
+
+Replace `process.env.LOG_LEVEL || 'info'` (line 8) with `env.LOG_LEVEL` and `process.env.NODE_ENV !== 'production'` (line 27) with `env.NODE_ENV !== 'production'`.
+
+### `src/config/swagger.ts`
+
+Replace `process.env.HOST || 'localhost'` (line 12) with `env.HOST`.
 
 ### `package.json`
 
@@ -274,15 +319,21 @@ Add: `zod`.
 
 ### `podman-compose.yml`
 
-Remove `JWT_SECRET` and `JWT_EXPIRES_IN` from the `app` service environment. Add `API_KEY` with a placeholder value that passes the `min(16)` check.
+- Remove `JWT_SECRET` and `JWT_EXPIRES_IN` from the `app` service environment.
+- Add `API_KEY: change-me-in-production-min-16-chars` (placeholder passes the `min(16)` check).
+- Keep `HOST: localhost` as it is now a valid env var (present in schema).
 
 ### `kubernetes/deployment.yml`
 
-Remove `JWT_SECRET` and `JWT_EXPIRES_IN` env entries in the Deployment; remove the `JWT_SECRET` key from the `chart-service-secrets` Secret. Add `API_KEY` to both.
+- Remove `JWT_SECRET` and `JWT_EXPIRES_IN` env entries in the Deployment.
+- Remove the `JWT_SECRET` key from the `chart-service-secrets` Secret.
+- Add `API_KEY` to both (env entry referencing `secretKeyRef`, and the key under `data:`).
+- Follow the existing placeholder style in the `Secret` (current values like `"your-db-password"` are plaintext placeholders under `data:`, which is technically invalid as `data:` expects base64). **Fixing the base64/`stringData:` issue is out of scope** — this spec only adds/removes keys in the existing broken style. Users deploying to real clusters are expected to either base64-encode their values or switch the Secret to `stringData:` themselves.
 
 ### `README.md`
 
-Replace the example `-H "Authorization: Bearer your-token"` with `-H "x-api-key: your-api-key"` so the documented usage matches the implemented auth.
+- Replace the example `-H "Authorization: Bearer your-token"` with `-H "x-api-key: your-api-key"`.
+- Review the entire "Authentication" section for any remaining Bearer/JWT references and update them to the API-key model. The section should describe only the `x-api-key` header flow.
 
 ### `.env.example`
 
@@ -293,7 +344,9 @@ Remove the `# Security` / `BCRYPT_ROUNDS=12` lines.
 - All HTTP endpoints, paths, status codes, and response shapes are unchanged.
 - The 400 validation error payload keeps the exact shape `{success: false, error: string, details: [{field, message}]}`.
 - The `expiresAt` rule (must be in the future) is preserved; only the error string may differ slightly.
-- `REDIS_URL` remains optional; graceful degradation when Redis is unavailable is preserved.
+- `REDIS_URL` remains optional; graceful degradation when Redis is unavailable is preserved (empty string or unset → `undefined` → local fallback in `redis.ts`).
+- Swagger `ApiKeyAuth` scheme (header `x-api-key`) remains the documented authentication method; no changes to OpenAPI security definitions.
+- The manual `chart_type`/`chart_data` presence check in `src/routes/charts.ts:97-103` is **left in place** (redundant after validation, but out of scope — harmless).
 
 ## Verification (manual)
 
@@ -306,19 +359,23 @@ The project has no automated tests and this spec does not add any. Verification 
 | 3. `validation.ts` rewritten | `tsc --noEmit` green; negative curl: `POST /api/charts/generate` with missing `chartType` → 400 with `details[].field = "chartType"`; positive curl → 201 |
 | 4. `types/api.ts` inferred | `tsc --noEmit` green (main test — TS catches any drift) |
 | 5. `database.ts` without fallbacks | App starts with valid env; without `DB_PASSWORD` exits 1 with env error |
-| 6. JWT cleanup | `grep -rE "(jwt\|JsonWebToken\|bcrypt\|Bearer)" src/ .env.example podman-compose.yml kubernetes/ README.md` → no matches |
+| 6. JWT cleanup | (bash) `grep -rE -i "(jwt\|jsonwebtoken\|bcrypt\|bearer)" src/ .env.example podman-compose.yml kubernetes/ README.md` → no matches |
+| 6b. `process.env` centralised | `grep -r "process\.env\." src/` → only matches in `src/config/env.ts` |
 | 7. README fixed | Sections *Authentication* and *Chart Usage Examples* reviewed |
 | 8. Final smoke test | `podman-compose down && podman-compose up -d --build` — all 3 services healthy; `/api/health/detailed` → 200; `POST /api/charts/generate` with valid `API_KEY` → 201; returned URLs (`/png`, `/embed`, `/json`) resolve |
 
 ## Definition of Done
 
 - `tsc --noEmit` passes.
-- `npm ls` shows no `joi`, `jsonwebtoken`, `bcryptjs`, or their `@types/*`.
+- `npm ls` shows no `joi`, `jsonwebtoken`, `bcryptjs`, or their `@types/*`; shows `zod` in dependencies.
 - `grep -r "process\.env\." src/` returns results only in `src/config/env.ts`.
-- `grep -ri "jwt\|bearer\|bcrypt" src/ .env.example podman-compose.yml kubernetes/ README.md` returns no matches.
-- App refuses to start without `DB_PASSWORD` or `API_KEY`.
-- `POST /api/charts/generate` still works against the documented contract.
-- 400 validation responses keep the current shape.
+- `grep -rEi "(jwt|jsonwebtoken|bcrypt|bearer)" src/ .env.example podman-compose.yml kubernetes/ README.md` returns no matches.
+- App refuses to start without `DB_PASSWORD`, `DB_HOST`, `DB_NAME`, `DB_USER`, or `API_KEY`.
+- App refuses to start with `API_KEY` shorter than 16 characters.
+- `POST /api/charts/generate` still works against the documented contract (verified via curl).
+- 400 validation responses keep the current shape: `{success: false, error: string, details: [{field: string, message: string}]}`.
+- `src/index.ts` imports `./config/env` as its first statement; `dotenv.config()` is no longer called from `index.ts`.
+- CORS `allowedHeaders` in `index.ts` includes `'x-api-key'` and does not include `'Authorization'`.
 
 ## Risks and mitigations
 
@@ -328,6 +385,9 @@ The project has no automated tests and this spec does not add any. Verification 
 | `expiresAt` error message differs from the Joi version | Acceptable; message is explicitly customised via `refine(..., 'expiresAt must be in the future')`. |
 | Someone clones repo without `.env` | `env.ts` exits 1 with a clear error listing missing vars; `README.md` already instructs `cp .env.example .env`. |
 | k8s `Secret` definition change requires re-apply in clusters | Documented in the Implementation Plan; consumers must update their cluster Secret. |
+| **Breaking change — short `API_KEY` values** | The new `min(16)` rule means any existing deployment with an `API_KEY` shorter than 16 chars will fail to start after upgrade. Mitigation: call this out in the release notes / README. The shipped `.env.example` placeholder (`your-super-secret-api-key-here`, 29 chars) already complies. |
+| **Breaking change — malformed `REDIS_URL`** | Previously tolerated at runtime (Redis connect fails silently). Now fails fast at startup. Empty/unset still works. Mitigation: release notes; operators should verify `REDIS_URL` format or leave it empty. |
+| Import order mistake (`env.ts` not first) | Documented explicitly as an invariant in the Architecture section; verified by step 2 of the manual checklist (`API_KEY="" npm run dev` must exit 1). |
 
 ## Open questions
 
