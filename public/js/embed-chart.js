@@ -1,8 +1,10 @@
 // Chart embedding functionality
-// This script expects the following global variables to be set by the HTML:
-// - window.chartData (the chart data object)
-// - window.chartType (string like 'bar', 'line', etc.)
-// - window.chartTheme (string like 'light' or 'dark')
+// This script reads chart inputs from the DOM emitted by renderEmbedPage:
+//   - JSON payload from <script type="application/json" id="chart-payload">
+//   - chart type from [data-chart-type] on .chart-container
+//   - theme from [data-chart-theme] on .chart-container
+// Window globals (window.chartData / chartType / chartTheme) are kept as a
+// fallback only for pages served by older cached server code.
 
 (function() {
   'use strict';

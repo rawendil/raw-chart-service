@@ -8,6 +8,7 @@ import { Logger } from '../utils/logger';
 import { GenerateChartRequest, UpdateChartRequest, ApiResponse, ChartResponse } from '../types/api';
 import { Chart } from '../types/database';
 import { validateBody, validateParams, generateChartSchema, updateChartSchema } from '../middleware/validation';
+import { renderEmbedPage } from '../views/embedPage';
 
 const router = Router();
 const logger = new Logger();
@@ -411,61 +412,21 @@ router.get('/:hash/embed', async (req: Request, res: Response): Promise<void> =>
       [chart.id, req.ip, req.get('User-Agent') || '', 'embed']
     );
 
-    // Generate HTML embed page
-    const embedHtml = `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>${chart.title || 'Chart'}</title>
-        <script src="/js/chart.js"></script>
-        <style>
-          body {
-            margin: 0;
-            padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: ${chart.theme === 'dark' ? '#1a1a1a' : '#ffffff'};
-            color: ${chart.theme === 'dark' ? '#ffffff' : '#333333'};
-          }
-          .chart-container {
-            max-width: ${chart.width}px;
-            margin: 0 auto;
-          }
-          h1 {
-            text-align: center;
-            margin-bottom: 20px;
-            font-size: 24px;
-            font-weight: 600;
-          }
-          .chart-description {
-            text-align: center;
-            margin-bottom: 30px;
-            color: ${chart.theme === 'dark' ? '#cccccc' : '#666666'};
-          }
-        </style>
-      </head>
-      <body>
-        <div class="chart-container">
-          <h1>${chart.title || 'Chart'}</h1>
-          ${chart.description ? `<p class="chart-description">${chart.description}</p>` : ''}
-          <canvas id="chartCanvas" width="${chart.width}" height="${chart.height}"></canvas>
-        </div>
-
-        <script>
-          // Set global variables for the chart
-          window.chartData = ${JSON.stringify(chart.chart_data)};
-          window.chartType = '${chart.chart_type}';
-          window.chartTheme = '${chart.theme}';
-        </script>
-        <script src="/js/embed-chart.js"></script>
-      </body>
-      </html>
-    `;
+    const embedHtml = renderEmbedPage({
+      title: chart.title,
+      description: chart.description,
+      chart_type: chart.chart_type,
+      chart_data: chart.chart_data,
+      width: chart.width,
+      height: chart.height,
+      theme: chart.theme,
+    });
 
     res.setHeader('Content-Type', 'text/html');
     res.setHeader('Cache-Control', 'public, max-age=3600');
-    // Set CSP to allow inline scripts for chart initialization
+    // Intentionally keep 'unsafe-inline' for script-src in this commit so
+    // /embed continues to work if any cached/old client JS is in flight.
+    // Tightened in the next chunk.
     res.setHeader('Content-Security-Policy', "script-src 'self' 'unsafe-inline'");
     res.send(embedHtml);
   } catch (error) {
