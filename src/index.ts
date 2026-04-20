@@ -89,7 +89,7 @@ class App {
     this.app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       explorer: true,
       customCss: '.swagger-ui .topbar { display: none }',
-      customSiteTitle: 'Chart Service API Documentation',
+      customSiteTitle: 'RawChart API Documentation',
       customfavIcon: '/favicon.ico'
     }));
 
@@ -143,7 +143,7 @@ class App {
      * /:
      *   get:
      *     summary: API information
-     *     description: Returns basic information about the Chart Service API
+     *     description: Returns basic information about the RawChart API
      *     tags: [General]
      *     responses:
      *       200:
@@ -155,7 +155,7 @@ class App {
      *               properties:
      *                 message:
      *                   type: string
-     *                   example: "Chart Service API"
+     *                   example: "RawChart API"
      *                 version:
      *                   type: string
      *                   example: "1.0.0"
@@ -165,7 +165,7 @@ class App {
      */
     this.app.get('/', (req, res) => {
       res.json({
-        message: 'Chart Service API',
+        message: 'RawChart API',
         version: '1.0.0',
         docs: '/api/docs'
       });
