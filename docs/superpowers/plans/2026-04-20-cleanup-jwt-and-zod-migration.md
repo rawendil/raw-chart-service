@@ -364,9 +364,9 @@ Run:
 npx tsc --noEmit
 ```
 
-Expected: errors only in `src/types/api.ts` (which still imports Joi-derived types) and possibly `src/routes/charts.ts` where `types/api.ts` is consumed. No errors in `validation.ts` itself.
+Expected: **zero errors**. The rewritten `validation.ts` compiles cleanly, and neither `types/api.ts` nor `routes/charts.ts` import from validation.ts in a way that exposes Joi-specific types — the hand-written interfaces in `types/api.ts` still satisfy `routes/charts.ts`. The Joi-derived type drift will only surface in Task 5 when we replace those interfaces with Zod inferences.
 
-If there are unexpected errors in `validation.ts`, stop and diagnose before proceeding.
+If any errors appear in `validation.ts` itself, stop and diagnose before proceeding.
 
 - [ ] **Step 4.3: Commit**
 
@@ -390,7 +390,9 @@ Read `src/types/api.ts` to identify:
 
 - [ ] **Step 5.2: Rewrite the file**
 
-Replace the request-side interfaces with Zod inferences. Keep `ChartResponse` and `ApiResponse<T>` (and any other response-only types) unchanged.
+Replace the request-side interfaces with Zod inferences. Keep `ChartResponse`, `ApiResponse<T>`, and all other response/envelope types (`PaginatedResponse`, `ValidationError`, `ErrorResponse`) unchanged.
+
+**Delete** the now-unused internal helper interfaces `Dataset` and `ChartConfig` — they are superseded by inference from `datasetSchema` and `chartConfigSchema`. Verified by grep: no other module imports them from `types/api.ts` (`types/database.ts` has its own copies; `chartGenerator.ts` imports from `chart.js`).
 
 The new top of the file should read:
 
@@ -409,7 +411,7 @@ export type ChartData = z.infer<typeof chartDataSchema>;
 // Response and envelope types remain hand-written below.
 ```
 
-Then keep the existing definitions of `ChartResponse`, `ApiResponse<T>`, and any other response-only types.
+Then keep the existing definitions of: `ChartResponse`, `ApiResponse<T>`, `PaginatedResponse`, `ValidationError`, `ErrorResponse`. Any other response/envelope types in the file are preserved verbatim.
 
 - [ ] **Step 5.3: Type-check**
 
@@ -586,11 +588,13 @@ import { env } from '../config/env';
 
 - [ ] **Step 9.2: Remove JWT branches**
 
-Delete both blocks (currently lines 47-57 in the original file):
+Delete both `if` blocks in `src/middleware/errorHandler.ts` (around lines 48-56):
 ```ts
 if (err.name === 'JsonWebTokenError') { ... }
 if (err.name === 'TokenExpiredError') { ... }
 ```
+
+Both are string comparisons on `err.name` — neither imports from `jsonwebtoken`, so removing them does not create a compile dependency.
 
 - [ ] **Step 9.3: Replace `process.env.NODE_ENV` usage**
 
@@ -904,6 +908,10 @@ Expected: output contains ONLY matches inside `src/config/env.ts`.
 
 - [ ] **Step 15.7: Smoke test — app starts**
 
+**Prerequisites:**
+1. Postgres and Redis must be running locally. If not: `podman-compose up -d postgres redis`.
+2. `.env` must be populated with all required vars (see `.env.example`). `API_KEY` must be ≥ 16 characters.
+
 Run:
 ```bash
 npx ts-node src/index.ts &
@@ -913,7 +921,7 @@ curl -sf http://localhost:3000/api/health && echo "OK" || echo "FAIL"
 kill $SERVER_PID 2>/dev/null || true
 ```
 
-Expected: `OK` printed. If FAIL, investigate (likely DB/Redis not running locally — start them via `podman-compose up -d postgres redis` first).
+Expected: `OK` printed. If `FAIL`: check that the prerequisites above are met, then inspect the server stderr.
 
 - [ ] **Step 15.8: Commit**
 
@@ -1171,6 +1179,34 @@ API_KEY="short" npx ts-node src/index.ts
 echo "Exit code: $?"
 ```
 Expected: exit code 1 with the same `API_KEY` error.
+
+- [ ] **Step 20.7a: Missing DB vars rejected**
+
+For each of `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, run with that variable unset (others valid) and verify exit 1 + error listing the missing var. Example for `DB_PASSWORD`:
+```bash
+env -u DB_PASSWORD npx ts-node -e "require('./src/config/env')"
+echo "Exit: $?"
+```
+Expected: `Invalid environment variables:` followed by `DB_PASSWORD: <message>`, exit code `1`. Repeat for the other three.
+
+- [ ] **Step 20.7b: index.ts invariants**
+
+Verify `src/index.ts` satisfies the structural DoD requirements:
+
+```bash
+head -1 src/index.ts
+```
+Expected first line: `import { env } from './config/env';`
+
+```bash
+grep -n "dotenv\.config\|import dotenv" src/index.ts
+```
+Expected: no output (dotenv is not referenced in index.ts any more).
+
+```bash
+grep -nE "allowedHeaders" src/index.ts
+```
+Expected output shows `'x-api-key'` and does NOT contain `'Authorization'`.
 
 - [ ] **Step 20.8: Containerised smoke test**
 
