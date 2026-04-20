@@ -1,5 +1,6 @@
 import { createClient, RedisClientType } from 'redis';
 import { Logger } from '../utils/logger';
+import { env } from '../config/env';
 
 export class RedisService {
   private client: RedisClientType;
@@ -8,7 +9,7 @@ export class RedisService {
   constructor() {
     this.logger = new Logger();
     this.client = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379'
+      url: env.REDIS_URL ?? 'redis://localhost:6379'
     });
     
     this.client.on('error', (err) => {
