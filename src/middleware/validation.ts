@@ -1,185 +1,121 @@
-import Joi from 'joi';
 import { Request, Response, NextFunction } from 'express';
+import { z, ZodType } from 'zod';
 import { Logger } from '../utils/logger';
 
 const logger = new Logger();
 
-// Chart type validation
-export const chartTypeSchema = Joi.string()
-  .valid('line', 'bar', 'pie', 'doughnut', 'radar', 'polarArea', 'scatter', 'bubble', 'mixed')
-  .required();
+export const chartTypeSchema = z.enum([
+  'line', 'bar', 'pie', 'doughnut', 'radar', 'polarArea', 'scatter', 'bubble', 'mixed',
+]);
 
-// Theme validation
-export const themeSchema = Joi.string()
-  .valid('light', 'dark', 'custom')
-  .default('light');
+export const themeSchema = z.enum(['light', 'dark', 'custom']).default('light');
 
-// Dataset validation
-export const datasetSchema = Joi.object({
-  label: Joi.string().required(),
-  data: Joi.array().items(Joi.number()).required(),
-  backgroundColor: Joi.alternatives().try(
-    Joi.string(),
-    Joi.array().items(Joi.string())
-  ),
-  borderColor: Joi.alternatives().try(
-    Joi.string(),
-    Joi.array().items(Joi.string())
-  ),
-  borderWidth: Joi.number().integer().min(0).max(10),
-  fill: Joi.boolean(),
-  type: Joi.string().valid('line', 'bar')
+export const datasetSchema = z.object({
+  label: z.string(),
+  data: z.array(z.number()),
+  backgroundColor: z.union([z.string(), z.array(z.string())]).optional(),
+  borderColor: z.union([z.string(), z.array(z.string())]).optional(),
+  borderWidth: z.number().int().min(0).max(10).optional(),
+  fill: z.boolean().optional(),
+  type: z.enum(['line', 'bar']).optional(),
 });
 
-// Chart data validation
-export const chartDataSchema = Joi.object({
-  labels: Joi.array().items(Joi.string()).required(),
-  datasets: Joi.array().items(datasetSchema).min(1).required()
+export const chartDataSchema = z.object({
+  labels: z.array(z.string()),
+  datasets: z.array(datasetSchema).min(1),
 });
 
-// Chart configuration validation
-export const chartConfigSchema = Joi.object({
+export const chartConfigSchema = z.object({
   type: chartTypeSchema,
-  options: Joi.object({
-    responsive: Joi.boolean(),
-    maintainAspectRatio: Joi.boolean(),
-    plugins: Joi.object({
-      legend: Joi.object({
-        display: Joi.boolean(),
-        position: Joi.string().valid('top', 'bottom', 'left', 'right')
-      }),
-      title: Joi.object({
-        display: Joi.boolean(),
-        text: Joi.string()
-      })
-    }),
-    scales: Joi.object(),
-    elements: Joi.object()
-  })
+  options: z
+    .object({
+      responsive: z.boolean().optional(),
+      maintainAspectRatio: z.boolean().optional(),
+      plugins: z
+        .object({
+          legend: z
+            .object({
+              display: z.boolean().optional(),
+              position: z.enum(['top', 'bottom', 'left', 'right']).optional(),
+            })
+            .optional(),
+          title: z
+            .object({
+              display: z.boolean().optional(),
+              text: z.string().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+      scales: z.record(z.unknown()).optional(),
+      elements: z.record(z.unknown()).optional(),
+    })
+    .optional(),
 });
 
-// Generate chart request validation (camelCase input)
-export const generateChartSchema = Joi.object({
-  title: Joi.string().max(255),
-  description: Joi.string().max(1000),
+export const generateChartSchema = z.object({
+  title: z.string().max(255).optional(),
+  description: z.string().max(1000).optional(),
   chartType: chartTypeSchema,
   data: chartDataSchema,
-  width: Joi.number().integer().min(100).max(4000).default(800),
-  height: Joi.number().integer().min(100).max(4000).default(600),
+  width: z.number().int().min(100).max(4000).default(800),
+  height: z.number().int().min(100).max(4000).default(600),
   theme: themeSchema,
-  isPublic: Joi.boolean().default(false),
-  expiresAt: Joi.date().greater('now'),
-  chartConfig: chartConfigSchema
+  isPublic: z.boolean().default(false),
+  expiresAt: z
+    .coerce.date()
+    .refine((d) => d > new Date(), 'expiresAt must be in the future')
+    .optional(),
+  chartConfig: chartConfigSchema.optional(),
 });
 
-// Update chart request validation (camelCase input)
-export const updateChartSchema = Joi.object({
-  title: Joi.string().max(255),
-  description: Joi.string().max(1000),
-  data: chartDataSchema,
-  width: Joi.number().integer().min(100).max(4000),
-  height: Joi.number().integer().min(100).max(4000),
-  theme: themeSchema,
-  isPublic: Joi.boolean(),
-  expiresAt: Joi.date().greater('now'),
-  chartConfig: chartConfigSchema
-}).min(1); // At least one field must be provided
+export const updateChartSchema = z
+  .object({
+    title: z.string().max(255).optional(),
+    description: z.string().max(1000).optional(),
+    data: chartDataSchema.optional(),
+    width: z.number().int().min(100).max(4000).optional(),
+    height: z.number().int().min(100).max(4000).optional(),
+    theme: themeSchema.optional(),
+    isPublic: z.boolean().optional(),
+    expiresAt: z
+      .coerce.date()
+      .refine((d) => d > new Date(), 'expiresAt must be in the future')
+      .optional(),
+    chartConfig: chartConfigSchema.optional(),
+  })
+  .refine((o) => Object.keys(o).length >= 1, {
+    message: 'At least one field must be provided',
+  });
 
-// Parameter validation middleware
-export function validateParams(schema: Joi.ObjectSchema) {
+type Source = 'body' | 'params' | 'query';
+
+function validate(source: Source, schema: ZodType) {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const { error, value } = schema.validate(req.params, {
-      abortEarly: false,
-      stripUnknown: true,
-      convert: true
-    });
+    const result = schema.safeParse(req[source]);
 
-    if (error) {
-      const validationErrors = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message
+    if (!result.success) {
+      const details = result.error.issues.map((issue) => ({
+        field: issue.path.join('.'),
+        message: issue.message,
       }));
 
-      logger.warn('Parameter validation failed', {
-        errors: validationErrors,
-        params: req.params
-      });
+      logger.warn(`${source} validation failed`, { errors: details });
 
+      const label = source[0].toUpperCase() + source.slice(1);
       res.status(400).json({
         success: false,
-        error: 'Parameter validation failed',
-        details: validationErrors
+        error: `${label} validation failed`,
+        details,
       });
       return;
     }
 
-    req.params = value;
+    (req as unknown as Record<string, unknown>)[source] = result.data;
     next();
   };
 }
 
-// Query validation middleware
-export function validateQuery(schema: Joi.ObjectSchema) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const { error, value } = schema.validate(req.query, {
-      abortEarly: false,
-      stripUnknown: true,
-      convert: true
-    });
-
-    if (error) {
-      const validationErrors = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message
-      }));
-
-      logger.warn('Query validation failed', {
-        errors: validationErrors,
-        query: req.query
-      });
-
-      res.status(400).json({
-        success: false,
-        error: 'Query validation failed',
-        details: validationErrors
-      });
-      return;
-    }
-
-    req.query = value;
-    next();
-  };
-}
-
-// Validation middleware factory
-export function validateBody(schema: Joi.ObjectSchema) {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const { error, value } = schema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true,
-      convert: true
-    });
-
-    if (error) {
-      const validationErrors = error.details.map(detail => ({
-        field: detail.path.join('.'),
-        message: detail.message
-      }));
-
-      logger.warn('Validation failed', {
-        errors: validationErrors,
-        body: req.body
-      });
-
-      res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: validationErrors
-      });
-      return;
-    }
-
-    req.body = value;
-    next();
-  };
-}
+export const validateBody = (schema: ZodType) => validate('body', schema);
+export const validateParams = (schema: ZodType) => validate('params', schema);
+export const validateQuery = (schema: ZodType) => validate('query', schema);
