@@ -1,5 +1,5 @@
 {
-  "name": "chart-service",
+  "name": "rawchart-service",
   "version": "1.0.0",
   "description": "Microservice for generating, storing, and serving interactive charts",
   "main": "dist/index.js",
@@ -13,8 +13,8 @@
     "test:watch": "jest --watch",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "docker:build": "docker build -t chart-service .",
-    "docker:run": "docker run -p 3000:3000 chart-service",
+    "docker:build": "docker build -t rawchart-service .",
+    "docker:run": "docker run -p 3000:3000 rawchart-service",
     "docker:compose:up": "docker compose up -d",
     "docker:compose:down": "docker compose down",
     "docker:rebuild": "docker compose down && docker compose up -d --build",
