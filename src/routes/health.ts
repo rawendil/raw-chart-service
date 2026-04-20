@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { DatabaseService } from '../services/database';
+import { env } from '../config/env';
 
 const router = Router();
 const databaseService = new DatabaseService();
@@ -82,7 +83,7 @@ router.get('/', async (req: Request, res: Response) => {
         database: 'disconnected',
         api: 'running'
       },
-      error: process.env.NODE_ENV === 'development' ? error : 'Service unavailable'
+      error: env.NODE_ENV === 'development' ? error : 'Service unavailable'
     });
   }
 });
@@ -171,7 +172,7 @@ router.get('/detailed', async (req: Request, res: Response) => {
       success: false,
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      error: process.env.NODE_ENV === 'development' ? error : 'Service unavailable'
+      error: env.NODE_ENV === 'development' ? error : 'Service unavailable'
     });
   }
 });
