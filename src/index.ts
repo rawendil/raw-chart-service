@@ -1,5 +1,4 @@
 import { env } from './config/env';
-import 'reflect-metadata';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -47,6 +46,9 @@ class App {
   }
 
   private initializeMiddleware(): void {
+    // Required for accurate req.ip when running behind a reverse proxy
+    this.app.set('trust proxy', 1);
+
     // Security middleware
     this.app.use(helmet());
 

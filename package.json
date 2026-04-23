@@ -30,14 +30,11 @@
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1",
     "pg": "^8.11.3",
     "puppeteer": "^21.6.1",
     "redis": "^4.6.11",
-    "reflect-metadata": "^0.1.13",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "typedi": "^0.10.0",
     "winston": "^3.11.0",
     "zod": "^3.23.8"
   },
@@ -48,7 +45,6 @@
     "@types/express": "^4.17.21",
     "@types/jest": "^29.5.8",
     "@types/morgan": "^1.9.9",
-    "@types/multer": "^1.4.11",
     "@types/node": "^20.10.5",
     "@types/pg": "^8.10.9",
     "@types/supertest": "^6.0.2",
@@ -73,7 +69,7 @@
     "chart.js",
     "puppeteer"
   ],
-  "author": "Marketing Agency",
+  "author": "Sebastian Soczka",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
