@@ -5,11 +5,10 @@ import { ChartGeneratorService } from '../services/chartGenerator';
 import { RedisService } from '../services/redis';
 import { authenticateApiKey } from '../middleware/auth';
 import { Logger } from '../utils/logger';
-import { GenerateChartRequest, UpdateChartRequest, ApiResponse, ChartResponse } from '../types/api';
-import { Chart } from '../types/database';
+import { ApiResponse, ChartResponse } from '../types/api';
 import { validateBody, generateChartSchema, updateChartSchema } from '../middleware/validation';
 import { renderEmbedPage } from '../views/embedPage';
-import { env } from '../config/env';
+import { checkAccess } from '../utils/access';
 
 const router = Router();
 const logger = new Logger();
@@ -19,20 +18,13 @@ const getServices = (req: Request) => {
   const databaseService = req.app.locals.databaseService as DatabaseService;
   const redisService = req.app.locals.redisService as RedisService;
   const chartGenerator = new ChartGeneratorService(redisService);
-  
+
   return { databaseService, redisService, chartGenerator };
 };
 
 // Generate a hash for chart ID
 function generateChartHash(): string {
   return crypto.randomBytes(16).toString('hex');
-}
-
-function checkAccess(shareToken: string | null, req: Request): boolean {
-  if (shareToken === null) return true;
-  if (req.header('x-api-key') === env.API_KEY) return true;
-  const provided = (req.query.token as string | undefined) || req.header('x-share-token');
-  return provided === shareToken;
 }
 
 // POST /api/charts/generate - Generate new chart (authenticated)
