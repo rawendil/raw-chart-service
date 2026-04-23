@@ -1,12 +1,10 @@
 import puppeteer from 'puppeteer';
-import { ChartType, ChartData, ChartConfiguration } from 'chart.js';
+import { ChartType, ChartData } from 'chart.js';
 import { Logger } from '../utils/logger';
 import { ChartType as CustomChartType, Theme } from '../types/database';
 import { RedisService } from './redis';
 import { env } from '../config/env';
 import * as crypto from 'crypto';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export class ChartGeneratorService {
   private logger: Logger;
