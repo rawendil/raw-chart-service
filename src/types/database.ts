@@ -16,15 +16,6 @@ export interface Chart {
   updated_at: Date;
 }
 
-export interface ChartAccessLog {
-  id: string;
-  chart_id: string;
-  ip_address?: string;
-  user_agent?: string;
-  access_type: AccessType;
-  accessed_at: Date;
-}
-
 export type ChartType =
   | 'line'
   | 'bar'
