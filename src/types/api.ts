@@ -17,15 +17,6 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
-export interface PaginatedResponse<T> extends ApiResponse<T[]> {
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export interface ChartResponse {
   id: string;
   chart_hash: string;
@@ -43,15 +34,4 @@ export interface ChartResponse {
   embed_url: string;
   png_url: string;
   json_url: string;
-}
-
-export interface ValidationError {
-  field: string;
-  message: string;
-}
-
-export interface ErrorResponse {
-  success: false;
-  error: string;
-  details?: ValidationError[];
 }
