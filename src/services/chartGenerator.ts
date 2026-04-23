@@ -19,7 +19,7 @@ export class ChartGeneratorService {
   }
 
   private getChartJsScript(): string {
-    const chartJsPath = path.join(__dirname, '../public/js/chart.js');
+    const chartJsPath = path.join(__dirname, '../../public/js/chart.js');
     return fs.readFileSync(chartJsPath, 'utf-8');
   }
 
