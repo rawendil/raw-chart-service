@@ -40,8 +40,8 @@ RUN apk add --no-cache dumb-init \
     ttf-freefont
 
 # Create app user
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001
 
 # Set working directory
 WORKDIR /app
@@ -59,10 +59,10 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/public ./public
 
 # Create logs directory
-RUN mkdir -p logs && chown -R nextjs:nodejs logs
+RUN mkdir -p logs && chown -R appuser:appgroup logs
 
 # Switch to non-root user
-USER nextjs
+USER appuser
 
 # Expose port
 EXPOSE 3000
