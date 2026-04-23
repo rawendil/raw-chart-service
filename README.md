@@ -1,5 +1,9 @@
 # RawChart
 
+![CI](https://github.com/sebastiansoczka/raw-chart-service/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/github/license/sebastiansoczka/raw-chart-service)
+![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
+
 A high-performance microservice for generating, storing, and serving interactive charts using Chart.js and Node.js.
 
 ## Features
@@ -68,6 +72,16 @@ Full endpoint reference, authentication details, and more examples: [docs/api.md
 
 - Local setup without Docker, scripts, and project layout: [docs/development.md](./docs/development.md)
 - Interactive API explorer: <http://localhost:3000/api/docs>
+
+## Embed
+
+Any public chart can be embedded as an iframe:
+
+```html
+<iframe src="http://localhost:3000/api/charts/{hash}/embed" width="800" height="600" frameborder="0"></iframe>
+```
+
+The embed endpoint serves a self-contained HTML page (no external dependencies) with its own Content-Security-Policy header, safe for use in third-party sites.
 
 ## License
 
