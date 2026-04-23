@@ -161,26 +161,70 @@ const swaggerDefinition = {
                 format: 'uuid',
                 example: '123e4567-e89b-12d3-a456-426614174000',
               },
-              chartHash: {
+              chart_hash: {
                 type: 'string',
-                example: 'abc123def456',
+                example: 'abc123def456789abc123def456789ab',
               },
               title: {
                 type: 'string',
                 example: 'Monthly Sales Report',
               },
-              chartType: {
+              description: {
+                type: 'string',
+                example: 'Sales data for the current month',
+              },
+              chart_type: {
                 type: 'string',
                 example: 'bar',
               },
-              isPublic: {
+              width: {
+                type: 'number',
+                example: 800,
+              },
+              height: {
+                type: 'number',
+                example: 600,
+              },
+              theme: {
+                type: 'string',
+                enum: ['light', 'dark'],
+                example: 'light',
+              },
+              is_public: {
                 type: 'boolean',
                 example: false,
               },
-              createdAt: {
+              expires_at: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+                example: null,
+              },
+              created_at: {
                 type: 'string',
                 format: 'date-time',
                 example: '2025-10-18T21:00:00Z',
+              },
+              updated_at: {
+                type: 'string',
+                format: 'date-time',
+                example: '2025-10-18T21:00:00Z',
+              },
+              access_url: {
+                type: 'string',
+                example: 'http://localhost:3000/api/charts/abc123def456789abc123def456789ab',
+              },
+              embed_url: {
+                type: 'string',
+                example: 'http://localhost:3000/api/charts/abc123def456789abc123def456789ab/embed',
+              },
+              png_url: {
+                type: 'string',
+                example: 'http://localhost:3000/api/charts/abc123def456789abc123def456789ab/png',
+              },
+              json_url: {
+                type: 'string',
+                example: 'http://localhost:3000/api/charts/abc123def456789abc123def456789ab/json',
               },
             },
           },
