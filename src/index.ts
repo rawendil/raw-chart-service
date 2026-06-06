@@ -26,6 +26,7 @@ class App {
   private databaseService: DatabaseService;
   private redisService: RedisService;
   private logger: Logger;
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor() {
     this.app = express();
@@ -186,10 +187,40 @@ class App {
     try {
       await this.databaseService.initialize();
       this.logger.info('Database connected successfully');
+      this.initializeChartCleanup();
     } catch (error) {
       this.logger.error('Failed to connect to database', error);
       process.exit(1);
     }
+  }
+
+  private initializeChartCleanup(): void {
+    if (!env.EXPIRED_CHART_CLEANUP_ENABLED) {
+      this.logger.info('Expired-chart cleanup disabled');
+      return;
+    }
+
+    const run = async (): Promise<void> => {
+      try {
+        const deleted = await this.databaseService.deleteExpiredCharts(
+          env.EXPIRED_CHART_RETENTION_MS
+        );
+        if (deleted > 0) {
+          this.logger.info('Cleaned up expired charts', { deleted });
+        }
+      } catch (error) {
+        this.logger.error('Expired-chart cleanup failed', error);
+      }
+    };
+
+    void run(); // one sweep immediately on startup
+    this.cleanupTimer = setInterval(run, env.EXPIRED_CHART_CLEANUP_INTERVAL_MS);
+    this.cleanupTimer.unref(); // do not keep the process alive on its own
+
+    this.logger.info('Expired-chart cleanup scheduled', {
+      intervalMs: env.EXPIRED_CHART_CLEANUP_INTERVAL_MS,
+      retentionMs: env.EXPIRED_CHART_RETENTION_MS,
+    });
   }
 
   private async initializeRedis(): Promise<void> {
@@ -230,6 +261,9 @@ class App {
 
   public async stop(): Promise<void> {
     this.logger.info('Shutting down server...');
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
     await this.databaseService.close();
     await this.redisService.disconnect();
     process.exit(0);

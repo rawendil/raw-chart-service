@@ -75,6 +75,15 @@ export class DatabaseService {
     this.logger.info('Database tables created/verified');
   }
 
+  async deleteExpiredCharts(retentionMs: number): Promise<number> {
+    const cutoff = new Date(Date.now() - retentionMs);
+    const result = await this.query(
+      `DELETE FROM charts WHERE expires_at IS NOT NULL AND expires_at < $1`,
+      [cutoff]
+    );
+    return result.rowCount ?? 0;
+  }
+
   async query(text: string, params?: any[]): Promise<any> {
     const start = Date.now();
     try {

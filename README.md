@@ -51,6 +51,9 @@ All settings are loaded from `.env` — see [.env.example](./.env.example) for t
 | `REDIS_URL` | Redis connection string |
 | `ALLOWED_ORIGINS` | CORS allowlist |
 | `PORT` | HTTP port (default `3000`) |
+| `EXPIRED_CHART_CLEANUP_ENABLED` | Periodically delete charts past `expires_at` (`true`/`false`, default `true`) |
+| `EXPIRED_CHART_CLEANUP_INTERVAL_MS` | How often the cleanup sweep runs (default `3600000` = 1h) |
+| `EXPIRED_CHART_RETENTION_MS` | Grace period after `expires_at` before deletion; `0` = delete immediately |
 
 ## Usage
 
@@ -135,6 +138,24 @@ For charts with a `shareToken`, append it as a query parameter:
 ```
 
 The embed endpoint serves a self-contained HTML page (no external dependencies) with its own Content-Security-Policy header, safe for use in third-party sites.
+
+## Expired-chart cleanup
+
+Charts created with an `expiresAt` are hidden from all read endpoints once they expire, but their rows stay in the database until deleted. The service deletes them automatically: a background sweep runs **inside the app process** (no cron job, systemd unit, or server-side setup required) — it starts one pass immediately on boot and then repeats on a timer.
+
+Configure it entirely via `.env`:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `EXPIRED_CHART_CLEANUP_ENABLED` | `true` | Master on/off switch. Set to `false` to disable the sweep entirely. |
+| `EXPIRED_CHART_CLEANUP_INTERVAL_MS` | `3600000` (1h) | How often the sweep runs. |
+| `EXPIRED_CHART_RETENTION_MS` | `0` | Grace period after `expires_at` before a row is deleted. `0` means delete as soon as it expires — it is **not** an off-switch (use `EXPIRED_CHART_CLEANUP_ENABLED=false` for that). |
+
+Notes:
+
+- The timer lives in the running process, so cleanup only happens while the app is up. After a restart it catches up on the first pass.
+- `DELETE` lets PostgreSQL reuse the freed space; autovacuum reclaims it in the background. No manual `VACUUM` is needed under normal load.
+- Charts without an `expiresAt` are never touched — they live until explicitly deleted via `DELETE /api/charts/:hash`.
 
 ## License
 

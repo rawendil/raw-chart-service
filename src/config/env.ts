@@ -29,6 +29,15 @@ const envSchema = z.object({
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900000),
   RATE_LIMIT_MAX_REQUESTS: z.coerce.number().int().positive().default(100),
+
+  // Periodic deletion of charts past their expires_at.
+  EXPIRED_CHART_CLEANUP_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  EXPIRED_CHART_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(3600000),
+  // Grace period after expires_at before a row is deleted; 0 = delete as soon as expired.
+  EXPIRED_CHART_RETENTION_MS: z.coerce.number().int().nonnegative().default(0),
 });
 
 const parsed = envSchema.safeParse(process.env);
