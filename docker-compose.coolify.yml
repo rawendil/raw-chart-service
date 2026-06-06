@@ -1,0 +1,94 @@
+# Coolify-optimized compose file.
+#
+# Differences vs. the standalone docker-compose.yml:
+#   - no `container_name` (Coolify generates its own names; fixed names cause conflicts)
+#   - Postgres/Redis ports are NOT published to the host (internal network only)
+#   - the app uses `expose` instead of `ports`; routing + TLS is handled by Coolify's proxy
+#   - no `env_file` / `.env` bind-mount — set every variable in Coolify's UI; they are
+#     wired into the app via the explicit `environment:` block below
+#   - logs go to a named volume instead of a host bind-mount
+#
+# Required env vars to set in Coolify (no safe default): DB_PASSWORD, API_KEY, ALLOWED_ORIGINS.
+# Set the app's public domain in Coolify and it will route to port 3000 automatically.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-rawchart_service}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in Coolify}
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-rawchart_service}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    expose:
+      - "6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-rawchart_service}
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in Coolify}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      DB_IDLE_TIMEOUT: ${DB_IDLE_TIMEOUT:-30000}
+      DB_CONNECTION_TIMEOUT: ${DB_CONNECTION_TIMEOUT:-2000}
+      API_KEY: ${API_KEY:?API_KEY must be set in Coolify}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      REDIS_URL: redis://redis:6379
+      CHROMIUM_PATH: /usr/bin/chromium-browser
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
+      RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
+      EXPIRED_CHART_CLEANUP_ENABLED: ${EXPIRED_CHART_CLEANUP_ENABLED:-true}
+      EXPIRED_CHART_CLEANUP_INTERVAL_MS: ${EXPIRED_CHART_CLEANUP_INTERVAL_MS:-3600000}
+      EXPIRED_CHART_RETENTION_MS: ${EXPIRED_CHART_RETENTION_MS:-0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - app_logs:/app/logs
+    shm_size: 256m
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  app_logs:
+    driver: local

@@ -40,6 +40,14 @@ Services start on:
 
 Health check: `curl http://localhost:3000/api/health`
 
+### Deploying on Coolify
+
+Use [docker-compose.coolify.yml](./docker-compose.coolify.yml) instead of the standalone file. It drops fixed container names, keeps Postgres/Redis on the internal network only, and `expose`s the app on port 3000 so Coolify's proxy can route a domain + TLS to it.
+
+Set the environment variables in Coolify's UI rather than committing a `.env`. `DB_PASSWORD` and `API_KEY` are required (the deploy fails fast without them); `ALLOWED_ORIGINS` should list your public domain. Everything else has a sensible default.
+
+The standalone `docker-compose.yml` is unchanged and still works anywhere with a hand-written `.env`.
+
 ## Configuration
 
 All settings are loaded from `.env` — see [.env.example](./.env.example) for the complete, documented list. Most important:

@@ -4,6 +4,9 @@ docs/superpowers/
 # Git worktrees
 .worktrees/
 
+# Playwright MCP test artifacts (screenshots, snapshots, console logs)
+.playwright-mcp/
+
 # Blog articles (managed outside the repo)
 blog/
 
