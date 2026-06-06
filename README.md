@@ -1,7 +1,11 @@
-# RawChart
+<p align="center">
+  <img src="logo.svg" alt="RawChart logo" width="140" height="140">
+</p>
 
-![CI](https://github.com/sebastiansoczka/raw-chart-service/actions/workflows/ci.yml/badge.svg)
-![License](https://img.shields.io/github/license/sebastiansoczka/raw-chart-service)
+<h1 align="center">RawChart</h1>
+
+![CI](https://github.com/rawendil/raw-chart-service/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/github/license/rawendil/raw-chart-service)
 ![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen)
 
 A high-performance microservice for generating, storing, and serving interactive charts using Chart.js and Node.js.
