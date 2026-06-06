@@ -255,12 +255,6 @@ router.get('/:hash', async (req: Request, res: Response): Promise<void> => {
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-    // Log access
-    await databaseService.query(
-      'INSERT INTO chart_access_logs (chart_id, ip_address, user_agent, access_type) VALUES ($1, $2, $3, $4)',
-      [chart.id, req.ip, req.get('User-Agent') || '', 'view']
-    );
-
     const response: ChartResponse = {
       id: chart.id,
       chart_hash: chart.chart_hash,
@@ -336,7 +330,7 @@ router.get('/:hash/png', async (req: Request, res: Response): Promise<void> => {
 
     // Get chart data from database
     const query = `
-      SELECT id, chart_data, chart_type, width, height, theme, title, share_token
+      SELECT chart_data, chart_type, width, height, theme, title, share_token
       FROM charts
       WHERE chart_hash = $1 AND (expires_at IS NULL OR expires_at > NOW())
     `;
@@ -370,12 +364,6 @@ router.get('/:hash/png', async (req: Request, res: Response): Promise<void> => {
       }
     );
 
-    // Log access
-    await databaseService.query(
-      'INSERT INTO chart_access_logs (chart_id, ip_address, user_agent, access_type) VALUES ($1, $2, $3, $4)',
-      [chart.id, req.ip, req.get('User-Agent') || '', 'png']
-    );
-
     logger.info('PNG served successfully', {
       chartHash: hash,
       size: pngBuffer.length
@@ -400,7 +388,7 @@ router.get('/:hash/embed', async (req: Request, res: Response): Promise<void> =>
 
     // Get chart data from database
     const query = `
-      SELECT id, chart_data, chart_type, width, height, theme, title, description, share_token
+      SELECT chart_data, chart_type, width, height, theme, title, description, share_token
       FROM charts
       WHERE chart_hash = $1 AND (expires_at IS NULL OR expires_at > NOW())
     `;
@@ -421,12 +409,6 @@ router.get('/:hash/embed', async (req: Request, res: Response): Promise<void> =>
       res.status(403).json({ success: false, error: 'Invalid or missing share token' } as ApiResponse);
       return;
     }
-
-    // Log access
-    await databaseService.query(
-      'INSERT INTO chart_access_logs (chart_id, ip_address, user_agent, access_type) VALUES ($1, $2, $3, $4)',
-      [chart.id, req.ip, req.get('User-Agent') || '', 'embed']
-    );
 
     const embedHtml = renderEmbedPage({
       title: chart.title,
@@ -514,7 +496,7 @@ router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => 
 
     // Get chart data from database
     const query = `
-      SELECT id, chart_data, chart_type, title, description, share_token
+      SELECT chart_data, chart_type, title, description, share_token
       FROM charts
       WHERE chart_hash = $1 AND (expires_at IS NULL OR expires_at > NOW())
     `;
@@ -535,12 +517,6 @@ router.get('/:hash/json', async (req: Request, res: Response): Promise<void> => 
       res.status(403).json({ success: false, error: 'Invalid or missing share token' } as ApiResponse);
       return;
     }
-
-    // Log access
-    await databaseService.query(
-      'INSERT INTO chart_access_logs (chart_id, ip_address, user_agent, access_type) VALUES ($1, $2, $3, $4)',
-      [chart.id, req.ip, req.get('User-Agent') || '', 'json']
-    );
 
     res.json({
       success: true,

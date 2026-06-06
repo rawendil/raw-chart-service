@@ -60,23 +60,12 @@ export class DatabaseService {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       `,
-      `
-      CREATE TABLE IF NOT EXISTS chart_access_logs (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        chart_id UUID REFERENCES charts(id) ON DELETE CASCADE,
-        ip_address INET,
-        user_agent TEXT,
-        access_type VARCHAR(20) NOT NULL,
-        accessed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-      `,
       `ALTER TABLE charts ADD COLUMN IF NOT EXISTS share_token VARCHAR(255) DEFAULT NULL`,
       `ALTER TABLE charts DROP COLUMN IF EXISTS is_public`,
       `DROP INDEX IF EXISTS idx_charts_public`,
+      `DROP TABLE IF EXISTS chart_access_logs`,
       `CREATE INDEX IF NOT EXISTS idx_charts_hash ON charts(chart_hash)`,
-      `CREATE INDEX IF NOT EXISTS idx_charts_share_token ON charts(share_token) WHERE share_token IS NOT NULL`,
-      `CREATE INDEX IF NOT EXISTS idx_access_logs_chart ON chart_access_logs(chart_id)`,
-      `CREATE INDEX IF NOT EXISTS idx_access_logs_date ON chart_access_logs(accessed_at)`
+      `CREATE INDEX IF NOT EXISTS idx_charts_share_token ON charts(share_token) WHERE share_token IS NOT NULL`
     ];
 
     for (const query of queries) {
