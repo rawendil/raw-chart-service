@@ -116,6 +116,13 @@
     }
   };
 
+  // Circular charts (pie/doughnut/polarArea) have no cartesian axes; leaving x/y
+  // scales in place draws a stray grid behind the chart. Keep this in sync with the
+  // server-side PNG renderer (ChartGeneratorService.getScaleOptions).
+  if (['pie', 'doughnut', 'polarArea'].includes(chartType)) {
+    delete config.options.scales;
+  }
+
   // Initialize chart
   new Chart(ctx, config);
 })();

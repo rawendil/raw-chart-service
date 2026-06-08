@@ -273,7 +273,9 @@ export class ChartGeneratorService {
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: data.datasets.length > 1,
+            // Circular charts (pie/doughnut/polarArea) legend is driven by labels,
+            // not dataset count — a single-dataset pie still needs a legend.
+            display: ['pie', 'doughnut', 'polarArea'].includes(chartType) || data.datasets.length > 1,
             position: 'top',
             labels: {
               color: options.theme === 'dark' ? '#ffffff' : '#000000',
@@ -419,6 +421,12 @@ export class ChartGeneratorService {
   private getScaleOptions(chartType: CustomChartType, theme: Theme) {
     const textColor = theme === 'dark' ? '#ffffff' : '#000000';
     const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
+
+    // Circular charts have no cartesian axes — returning x/y scales makes
+    // Chart.js draw a stray grid behind the pie. Let Chart.js use its defaults.
+    if (chartType === 'pie' || chartType === 'doughnut' || chartType === 'polarArea') {
+      return {};
+    }
 
     const baseOptions = {
       x: {
