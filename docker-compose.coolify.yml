@@ -8,7 +8,12 @@
 #     wired into the app via the explicit `environment:` block below
 #   - logs go to a named volume instead of a host bind-mount
 #
-# Required env vars to set in Coolify (no safe default): DB_PASSWORD, API_KEY, ALLOWED_ORIGINS.
+# Required env vars to set in Coolify (set as Runtime; no safe default): DB_PASSWORD, API_KEY.
+#   - DB_PASSWORD / API_KEY are referenced as plain ${VAR} (not ${VAR:?}) on purpose: Coolify
+#     interpolates the WHOLE compose during `docker compose build`, and runtime-only secrets are
+#     absent there — a ${VAR:?} would abort the build. Fail-fast still happens at startup:
+#     the app's zod env validation rejects a short/empty API_KEY, and Postgres refuses to boot
+#     without a password. Keep these as Runtime (not Buildtime) so they aren't baked into layers.
 # Set the app's public domain in Coolify and it will route to port 3000 automatically.
 
 services:
@@ -18,7 +23,7 @@ services:
     environment:
       POSTGRES_DB: ${DB_NAME:-rawchart_service}
       POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in Coolify}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     expose:
       - "5432"
     volumes:
@@ -57,11 +62,11 @@ services:
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rawchart_service}
       DB_USER: ${DB_USER:-postgres}
-      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in Coolify}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_POOL_MAX: ${DB_POOL_MAX:-20}
       DB_IDLE_TIMEOUT: ${DB_IDLE_TIMEOUT:-30000}
       DB_CONNECTION_TIMEOUT: ${DB_CONNECTION_TIMEOUT:-2000}
-      API_KEY: ${API_KEY:?API_KEY must be set in Coolify}
+      API_KEY: ${API_KEY}
       LOG_LEVEL: ${LOG_LEVEL:-info}
       REDIS_URL: redis://redis:6379
       CHROMIUM_PATH: /usr/bin/chromium-browser

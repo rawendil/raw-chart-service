@@ -44,7 +44,7 @@ Health check: `curl http://localhost:3000/api/health`
 
 Use [docker-compose.coolify.yml](./docker-compose.coolify.yml) instead of the standalone file. It drops fixed container names, keeps Postgres/Redis on the internal network only, and `expose`s the app on port 3000 so Coolify's proxy can route a domain + TLS to it.
 
-Set the environment variables in Coolify's UI rather than committing a `.env`. `DB_PASSWORD` and `API_KEY` are required (the deploy fails fast without them); `ALLOWED_ORIGINS` should list your public domain. Everything else has a sensible default.
+Set the environment variables in Coolify's UI rather than committing a `.env`. `DB_PASSWORD` and `API_KEY` are required and should stay **Runtime-only** (not Available at Buildtime, so they aren't baked into image layers) — the app won't start without them (zod env validation rejects a short/empty `API_KEY`, and Postgres refuses to boot without a password). If you expose the app publicly, set `ALLOWED_ORIGINS` to your domain. Everything else has a sensible default.
 
 The standalone `docker-compose.yml` is unchanged and still works anywhere with a hand-written `.env`.
 

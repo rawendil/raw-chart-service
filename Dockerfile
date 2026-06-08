@@ -7,9 +7,11 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
+# Install all dependencies (including devDependencies for build).
+# --include=dev forces devDependencies even when NODE_ENV=production is passed as a
+# build arg (e.g. by Coolify), otherwise `npm ci` would omit them and `npm run build` (tsc) fails.
 ENV PUPPETEER_SKIP_DOWNLOAD=true
-RUN npm ci
+RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
