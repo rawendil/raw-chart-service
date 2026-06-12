@@ -1,4 +1,5 @@
 import { escapeHtml, escapeJsonForScript } from '../utils/html';
+import { THEMES, Theme } from '../config/themes';
 
 export interface EmbedChart {
   title: string | null;
@@ -25,10 +26,10 @@ export function renderEmbedPage(chart: EmbedChart): string {
   const height = Math.trunc(chart.height);
   const payload = escapeJsonForScript(chart.chart_data);
 
-  const isDark = chart.theme === 'dark';
-  const bgColor = isDark ? '#1a1a1a' : '#ffffff';
-  const fgColor = isDark ? '#ffffff' : '#333333';
-  const descColor = isDark ? '#cccccc' : '#666666';
+  const themeColors = THEMES[chart.theme as Theme] ?? THEMES.light;
+  const bgColor = themeColors.background;
+  const fgColor = themeColors.text;
+  const descColor = themeColors.mutedText;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -71,6 +72,11 @@ export function renderEmbedPage(chart: EmbedChart): string {
     <canvas id="chartCanvas" width="${width}" height="${height}"></canvas>
   </div>
   <script type="application/json" id="chart-payload">${payload}</script>
+  <script type="application/json" id="chart-theme">${escapeJsonForScript({
+    text: themeColors.text,
+    grid: themeColors.grid,
+    palette: themeColors.palette,
+  })}</script>
   <script src="/js/embed-chart.js"></script>
 </body>
 </html>`;
