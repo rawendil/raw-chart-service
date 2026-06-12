@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodType } from 'zod';
 import { Logger } from '../utils/logger';
+import { THEME_NAMES } from '../config/themes';
 
 const logger = new Logger();
 
@@ -8,7 +9,7 @@ export const chartTypeSchema = z.enum([
   'line', 'bar', 'pie', 'doughnut', 'radar', 'polarArea', 'scatter', 'bubble', 'mixed',
 ]);
 
-export const themeSchema = z.enum(['light', 'dark']).default('light');
+export const themeSchema = z.enum(THEME_NAMES).default('light');
 
 export const datasetSchema = z.object({
   label: z.string(),

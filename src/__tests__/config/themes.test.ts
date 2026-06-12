@@ -1,4 +1,5 @@
 import { THEMES, THEME_NAMES, ThemeColors } from '../../config/themes';
+import { themeSchema } from '../../middleware/validation';
 
 describe('THEMES single source of truth', () => {
   const requiredFields: (keyof ThemeColors)[] = [
@@ -23,5 +24,19 @@ describe('THEMES single source of truth', () => {
   it.each(THEME_NAMES)('theme "%s" has a non-empty palette', (name) => {
     expect(Array.isArray(THEMES[name].palette)).toBe(true);
     expect(THEMES[name].palette.length).toBeGreaterThan(0);
+  });
+});
+
+describe('themeSchema derives from THEMES', () => {
+  it.each(THEME_NAMES)('accepts "%s"', (name) => {
+    expect(themeSchema.parse(name)).toBe(name);
+  });
+
+  it('rejects an unknown theme', () => {
+    expect(() => themeSchema.parse('not-a-theme')).toThrow();
+  });
+
+  it('defaults to light', () => {
+    expect(themeSchema.parse(undefined)).toBe('light');
   });
 });
