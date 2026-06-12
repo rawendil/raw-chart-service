@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import { z } from 'zod';
+import { parseCustomThemes } from './themeColors';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -38,6 +39,23 @@ const envSchema = z.object({
   EXPIRED_CHART_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(3600000),
   // Grace period after expires_at before a row is deleted; 0 = delete as soon as expired.
   EXPIRED_CHART_RETENTION_MS: z.coerce.number().int().nonnegative().default(0),
+
+  // Optional JSON object of extra themes, merged over the built-ins at startup.
+  // Invalid JSON / shape / color aborts startup (via the safeParse + process.exit below).
+  CUSTOM_THEMES: z
+    .string()
+    .optional()
+    .transform((raw, ctx) => {
+      try {
+        return parseCustomThemes(raw);
+      } catch (e) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `CUSTOM_THEMES is invalid: ${e instanceof Error ? e.message : String(e)}`,
+        });
+        return z.NEVER;
+      }
+    }),
 });
 
 const parsed = envSchema.safeParse(process.env);

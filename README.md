@@ -106,30 +106,23 @@ curl -X POST http://localhost:3000/api/charts/generate \
 
 ### Adding a custom theme
 
-To add a new theme (e.g. `"brand"`):
+**Built-in (in code):** themes live in [src/config/themes.ts](./src/config/themes.ts) (`BUILTIN_THEMES`). Add an entry there for a permanent, shipped theme. Validation and both renderers pick it up automatically. (The Swagger `theme` enum in the route annotations is a static list — update it there too if you want the new theme listed in the API docs.)
 
-1. **Extend the type** in [src/types/database.ts](./src/types/database.ts):
-   ```ts
-   export type Theme = 'light' | 'dark' | 'brand';
-   ```
+**Without a code change (deployment config):** set the `CUSTOM_THEMES` environment variable to a JSON object of themes. They are merged over the built-ins at startup (a custom theme with the same name overrides the built-in). Adding or changing a theme this way needs only a restart — no rebuild.
 
-2. **Add the color palette** in [src/services/chartGenerator.ts](./src/services/chartGenerator.ts) inside `colorPalettes`:
-   ```ts
-   brand: {
-     line: ['#your', '#colors', '#here', ...],
-     bar: [...],
-     // repeat for: pie, doughnut, radar, polarArea, scatter, bubble, mixed
-   }
-   ```
+```json
+{
+  "brand": {
+    "background": "#0b1020",
+    "text": "#e6e8ee",
+    "mutedText": "#9aa3b2",
+    "grid": "#243049",
+    "palette": ["#7aa2ff", "#ff6b6b", "#34d399", "#fbbf24", "#a78bfa", "#f472b6"]
+  }
+}
+```
 
-3. **Wire up background/text/grid colors** in the same file (`getScaleOptions` and the `backgroundColor` logic around line 61).
-
-4. **Update the validation schema** in [src/middleware/validation.ts](./src/middleware/validation.ts):
-   ```ts
-   export const themeSchema = z.enum(['light', 'dark', 'brand']).default('light');
-   ```
-
-5. **Update the Swagger enum** in [src/config/swagger.ts](./src/config/swagger.ts).
+Colors must be hex (`#rgb`/`#rrggbb`), `rgb(...)`, or `rgba(...)`; `palette` needs at least one color; theme names match `[a-z0-9_-]+`. An invalid `CUSTOM_THEMES` aborts startup with a clear error (fail-fast).
 
 ## Embed
 

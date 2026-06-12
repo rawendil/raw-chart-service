@@ -1,4 +1,5 @@
 import { escapeHtml, escapeJsonForScript } from '../utils/html';
+import { getThemeColors } from '../config/themes';
 
 export interface EmbedChart {
   title: string | null;
@@ -19,16 +20,15 @@ export interface EmbedChart {
 export function renderEmbedPage(chart: EmbedChart): string {
   const title = escapeHtml(chart.title || 'Chart');
   const description = chart.description ? escapeHtml(chart.description) : '';
-  const theme = escapeHtml(chart.theme);
   const chartType = escapeHtml(chart.chart_type);
   const width = Math.trunc(chart.width);
   const height = Math.trunc(chart.height);
   const payload = escapeJsonForScript(chart.chart_data);
 
-  const isDark = chart.theme === 'dark';
-  const bgColor = isDark ? '#1a1a1a' : '#ffffff';
-  const fgColor = isDark ? '#ffffff' : '#333333';
-  const descColor = isDark ? '#cccccc' : '#666666';
+  const themeColors = getThemeColors(chart.theme);
+  const bgColor = themeColors.background;
+  const fgColor = themeColors.text;
+  const descColor = themeColors.mutedText;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -64,13 +64,17 @@ export function renderEmbedPage(chart: EmbedChart): string {
 </head>
 <body>
   <div class="chart-container"
-       data-chart-type="${chartType}"
-       data-chart-theme="${theme}">
+       data-chart-type="${chartType}">
     <h1>${title}</h1>
     ${description ? `<p class="chart-description">${description}</p>` : ''}
     <canvas id="chartCanvas" width="${width}" height="${height}"></canvas>
   </div>
   <script type="application/json" id="chart-payload">${payload}</script>
+  <script type="application/json" id="chart-theme">${escapeJsonForScript({
+    text: themeColors.text,
+    grid: themeColors.grid,
+    palette: themeColors.palette,
+  })}</script>
   <script src="/js/embed-chart.js"></script>
 </body>
 </html>`;

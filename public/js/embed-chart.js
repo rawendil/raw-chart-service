@@ -1,4 +1,4 @@
-// Reads chart inputs from DOM: #chart-payload JSON, [data-chart-type], [data-chart-theme]
+// Reads chart inputs from DOM: #chart-payload JSON, #chart-theme JSON, [data-chart-type]
 
 (function() {
   'use strict';
@@ -21,7 +21,25 @@
   }
 
   const chartType = container && container.dataset.chartType;
-  const theme = container && container.dataset.chartTheme;
+
+  // Theme colors are injected by the server (single source of truth: src/config/themes.ts).
+  const themeDefaults = { text: '#000000', grid: '#e5e7eb', palette: ['#3b82f6'] };
+  let themeColors = themeDefaults;
+  const themeEl = document.getElementById('chart-theme');
+  if (themeEl) {
+    try {
+      themeColors = Object.assign({}, themeDefaults, JSON.parse(themeEl.textContent));
+    } catch (e) {
+      console.error('Failed to parse chart theme', e);
+    }
+  }
+
+  // Convert a #rrggbb hex to an rgba() string with the given alpha (for translucent fills).
+  function hexToRgba(hex, alpha) {
+    const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    if (!m) return hex;
+    return 'rgba(' + parseInt(m[1], 16) + ', ' + parseInt(m[2], 16) + ', ' + parseInt(m[3], 16) + ', ' + alpha + ')';
+  }
 
   if (!chartData || !chartType) {
     console.error('Chart data or type not provided');
@@ -38,31 +56,30 @@
   const ctx = chartCanvas.getContext('2d');
 
   // Theme-based colors
-  const textColor = theme === 'dark' ? '#ffffff' : '#333333';
-  const gridColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+  const textColor = themeColors.text;
+  const gridColor = themeColors.grid;
 
   // Default colors if not specified in data
   if (chartData.datasets && !chartData.datasets[0].backgroundColor) {
-    const colors = [
-      'rgba(255, 99, 132, 0.2)',
-      'rgba(54, 162, 235, 0.2)',
-      'rgba(255, 205, 86, 0.2)',
-      'rgba(75, 192, 192, 0.2)',
-      'rgba(153, 102, 255, 0.2)',
-      'rgba(255, 159, 64, 0.2)'
-    ];
-    const borderColors = [
-      'rgba(255, 99, 132, 1)',
-      'rgba(54, 162, 235, 1)',
-      'rgba(255, 205, 86, 1)',
-      'rgba(75, 192, 192, 1)',
-      'rgba(153, 102, 255, 1)',
-      'rgba(255, 159, 64, 1)'
-    ];
-
+    const palette = (themeColors.palette && themeColors.palette.length) ? themeColors.palette : themeDefaults.palette;
+    // Circular charts (pie/doughnut/polarArea) have one dataset whose data points are the
+    // slices, so each slice needs its own palette color (solid, like the PNG renderer).
+    // Other chart types get one translucent fill per dataset.
+    const isCircular = ['pie', 'doughnut', 'polarArea'].includes(chartType);
     chartData.datasets.forEach((dataset, index) => {
-      dataset.backgroundColor = colors[index % colors.length];
-      dataset.borderColor = borderColors[index % borderColors.length];
+      if (isCircular) {
+        const count = Array.isArray(dataset.data) ? dataset.data.length : 0;
+        const sliceColors = [];
+        for (let i = 0; i < count; i++) {
+          sliceColors.push(palette[i % palette.length]);
+        }
+        dataset.backgroundColor = sliceColors;
+        dataset.borderColor = sliceColors;
+      } else {
+        const color = palette[index % palette.length];
+        dataset.backgroundColor = hexToRgba(color, 0.2);
+        dataset.borderColor = color;
+      }
       dataset.borderWidth = 2;
     });
   }

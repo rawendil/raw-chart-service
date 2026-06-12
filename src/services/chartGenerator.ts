@@ -2,6 +2,7 @@ import puppeteer from 'puppeteer';
 import { ChartType, ChartData } from 'chart.js';
 import { Logger } from '../utils/logger';
 import { ChartType as CustomChartType, Theme } from '../types/database';
+import { getThemeColors } from '../config/themes';
 import { RedisService } from './redis';
 import { env } from '../config/env';
 import * as crypto from 'crypto';
@@ -38,8 +39,14 @@ export class ChartGeneratorService {
       .createHash('md5')
       .update(JSON.stringify({ data, options }))
       .digest('hex');
-    
-    return `chart_cache:${chartType}:${options.width}:${options.height}:${options.theme}:${dataHash}`;
+
+    const themeHash = crypto
+      .createHash('md5')
+      .update(JSON.stringify(getThemeColors(options.theme)))
+      .digest('hex')
+      .slice(0, 8);
+
+    return `chart_cache:${chartType}:${options.width}:${options.height}:${options.theme}:${themeHash}:${dataHash}`;
   }
 
   async generateChart(
@@ -58,7 +65,7 @@ export class ChartGeneratorService {
       height = 600,
       theme = 'light',
       title,
-      backgroundColor = theme === 'dark' ? '#1a1a1a' : '#ffffff'
+      backgroundColor = getThemeColors(theme).background
     } = options;
 
     const cacheKey = this.generateCacheKey(chartType, data, { width, height, theme, title, backgroundColor });
@@ -263,8 +270,8 @@ export class ChartGeneratorService {
         labels: data.labels || [],
         datasets: data.datasets.map(dataset => ({
           ...dataset,
-          backgroundColor: this.getBackgroundColors(dataset.backgroundColor, chartType, options.theme),
-          borderColor: this.getBorderColors(dataset.borderColor, chartType, options.theme),
+          backgroundColor: this.getBackgroundColors(dataset.backgroundColor, options.theme),
+          borderColor: this.getBorderColors(dataset.borderColor, options.theme),
           borderWidth: dataset.borderWidth || 2,
         }))
       },
@@ -278,7 +285,7 @@ export class ChartGeneratorService {
             display: ['pie', 'doughnut', 'polarArea'].includes(chartType) || data.datasets.length > 1,
             position: 'top',
             labels: {
-              color: options.theme === 'dark' ? '#ffffff' : '#000000',
+              color: getThemeColors(options.theme).text,
               font: {
                 size: 12
               }
@@ -287,7 +294,7 @@ export class ChartGeneratorService {
           title: {
             display: !!options.title,
             text: options.title,
-            color: options.theme === 'dark' ? '#ffffff' : '#000000',
+            color: getThemeColors(options.theme).text,
             font: {
               size: 16,
               weight: 'bold'
@@ -369,58 +376,28 @@ export class ChartGeneratorService {
 
   private getBackgroundColors(
     providedColors: string | string[] | undefined,
-    chartType: CustomChartType,
     theme: Theme
   ): string | string[] {
     if (providedColors) {
       return providedColors;
     }
-
-    // Default color palettes based on chart type and theme
-    const colorPalettes = {
-      light: {
-        line: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        bar: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        pie: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        doughnut: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        radar: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        polarArea: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        scatter: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        bubble: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
-        mixed: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899']
-      },
-      dark: {
-        line: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        bar: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        pie: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        doughnut: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        radar: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        polarArea: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        scatter: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        bubble: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-        mixed: ['#60a5fa', '#f87171', '#34d399', '#fbbf24', '#a78bfa', '#f472b6']
-      }
-    };
-
-    return colorPalettes[theme as keyof typeof colorPalettes][chartType] || colorPalettes[theme as keyof typeof colorPalettes].line;
+    return getThemeColors(theme).palette;
   }
 
   private getBorderColors(
     providedColors: string | string[] | undefined,
-    chartType: CustomChartType,
     theme: Theme
   ): string | string[] {
     if (providedColors) {
       return providedColors;
     }
-
-    // For most chart types, border colors match background colors
-    return this.getBackgroundColors(undefined, chartType, theme);
+    // Border colors match background colors.
+    return this.getBackgroundColors(undefined, theme);
   }
 
   private getScaleOptions(chartType: CustomChartType, theme: Theme) {
-    const textColor = theme === 'dark' ? '#ffffff' : '#000000';
-    const gridColor = theme === 'dark' ? '#374151' : '#e5e7eb';
+    const textColor = getThemeColors(theme).text;
+    const gridColor = getThemeColors(theme).grid;
 
     // Circular charts have no cartesian axes — returning x/y scales makes
     // Chart.js draw a stray grid behind the pie. Let Chart.js use its defaults.

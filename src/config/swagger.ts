@@ -1,5 +1,6 @@
 import swaggerJSDoc from 'swagger-jsdoc';
 import { env } from './env';
+import { THEME_NAMES } from './themes';
 
 const swaggerDefinition = {
   openapi: '3.0.0',
@@ -129,7 +130,7 @@ const swaggerDefinition = {
           },
           theme: {
             type: 'string',
-            enum: ['light', 'dark'],
+            enum: [...THEME_NAMES],
             example: 'light',
           },
           shareToken: {
@@ -189,7 +190,7 @@ const swaggerDefinition = {
               },
               theme: {
                 type: 'string',
-                enum: ['light', 'dark'],
+                enum: [...THEME_NAMES],
                 example: 'light',
               },
               share_token: {
