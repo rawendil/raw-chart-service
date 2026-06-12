@@ -2,7 +2,7 @@ import puppeteer from 'puppeteer';
 import { ChartType, ChartData } from 'chart.js';
 import { Logger } from '../utils/logger';
 import { ChartType as CustomChartType, Theme } from '../types/database';
-import { THEMES } from '../config/themes';
+import { getThemeColors } from '../config/themes';
 import { RedisService } from './redis';
 import { env } from '../config/env';
 import * as crypto from 'crypto';
@@ -39,8 +39,14 @@ export class ChartGeneratorService {
       .createHash('md5')
       .update(JSON.stringify({ data, options }))
       .digest('hex');
-    
-    return `chart_cache:${chartType}:${options.width}:${options.height}:${options.theme}:${dataHash}`;
+
+    const themeHash = crypto
+      .createHash('md5')
+      .update(JSON.stringify(getThemeColors(options.theme)))
+      .digest('hex')
+      .slice(0, 8);
+
+    return `chart_cache:${chartType}:${options.width}:${options.height}:${options.theme}:${themeHash}:${dataHash}`;
   }
 
   async generateChart(
@@ -59,7 +65,7 @@ export class ChartGeneratorService {
       height = 600,
       theme = 'light',
       title,
-      backgroundColor = THEMES[theme].background
+      backgroundColor = getThemeColors(theme).background
     } = options;
 
     const cacheKey = this.generateCacheKey(chartType, data, { width, height, theme, title, backgroundColor });
@@ -279,7 +285,7 @@ export class ChartGeneratorService {
             display: ['pie', 'doughnut', 'polarArea'].includes(chartType) || data.datasets.length > 1,
             position: 'top',
             labels: {
-              color: THEMES[options.theme].text,
+              color: getThemeColors(options.theme).text,
               font: {
                 size: 12
               }
@@ -288,7 +294,7 @@ export class ChartGeneratorService {
           title: {
             display: !!options.title,
             text: options.title,
-            color: THEMES[options.theme].text,
+            color: getThemeColors(options.theme).text,
             font: {
               size: 16,
               weight: 'bold'
@@ -375,7 +381,7 @@ export class ChartGeneratorService {
     if (providedColors) {
       return providedColors;
     }
-    return THEMES[theme].palette;
+    return getThemeColors(theme).palette;
   }
 
   private getBorderColors(
@@ -390,8 +396,8 @@ export class ChartGeneratorService {
   }
 
   private getScaleOptions(chartType: CustomChartType, theme: Theme) {
-    const textColor = THEMES[theme].text;
-    const gridColor = THEMES[theme].grid;
+    const textColor = getThemeColors(theme).text;
+    const gridColor = getThemeColors(theme).grid;
 
     // Circular charts have no cartesian axes — returning x/y scales makes
     // Chart.js draw a stray grid behind the pie. Let Chart.js use its defaults.
