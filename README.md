@@ -106,30 +106,22 @@ curl -X POST http://localhost:3000/api/charts/generate \
 
 ### Adding a custom theme
 
-To add a new theme (e.g. `"brand"`):
+Themes are defined in one place — [src/config/themes.ts](./src/config/themes.ts). To add a theme
+(e.g. `"brand"`), add one entry to the `THEMES` map:
 
-1. **Extend the type** in [src/types/database.ts](./src/types/database.ts):
-   ```ts
-   export type Theme = 'light' | 'dark' | 'brand';
-   ```
+```ts
+brand: {
+  background: '#0b1020', // page + chart background
+  text: '#e6e8ee',       // legend, axis ticks, embed heading
+  mutedText: '#9aa3b2',  // embed description
+  grid: '#243049',       // axis grid lines
+  palette: ['#7aa2ff', '#ff6b6b', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
+},
+```
 
-2. **Add the color palette** in [src/services/chartGenerator.ts](./src/services/chartGenerator.ts) inside `colorPalettes`:
-   ```ts
-   brand: {
-     line: ['#your', '#colors', '#here', ...],
-     bar: [...],
-     // repeat for: pie, doughnut, radar, polarArea, scatter, bubble, mixed
-   }
-   ```
-
-3. **Wire up background/text/grid colors** in the same file (`getScaleOptions` and the `backgroundColor` logic around line 61).
-
-4. **Update the validation schema** in [src/middleware/validation.ts](./src/middleware/validation.ts):
-   ```ts
-   export const themeSchema = z.enum(['light', 'dark', 'brand']).default('light');
-   ```
-
-5. **Update the Swagger enum** in [src/config/swagger.ts](./src/config/swagger.ts).
+Everything else derives from this map automatically: the `Theme` type, the request-validation
+enum, the Swagger enum, the PNG renderer, and the embed page (which injects the colors into the
+page for the browser script). No other file needs editing.
 
 ## Embed
 
