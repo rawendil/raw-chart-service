@@ -62,10 +62,24 @@
   // Default colors if not specified in data
   if (chartData.datasets && !chartData.datasets[0].backgroundColor) {
     const palette = (themeColors.palette && themeColors.palette.length) ? themeColors.palette : themeDefaults.palette;
+    // Circular charts (pie/doughnut/polarArea) have one dataset whose data points are the
+    // slices, so each slice needs its own palette color (solid, like the PNG renderer).
+    // Other chart types get one translucent fill per dataset.
+    const isCircular = ['pie', 'doughnut', 'polarArea'].includes(chartType);
     chartData.datasets.forEach((dataset, index) => {
-      const color = palette[index % palette.length];
-      dataset.backgroundColor = hexToRgba(color, 0.2);
-      dataset.borderColor = color;
+      if (isCircular) {
+        const count = Array.isArray(dataset.data) ? dataset.data.length : 0;
+        const sliceColors = [];
+        for (let i = 0; i < count; i++) {
+          sliceColors.push(palette[i % palette.length]);
+        }
+        dataset.backgroundColor = sliceColors;
+        dataset.borderColor = sliceColors;
+      } else {
+        const color = palette[index % palette.length];
+        dataset.backgroundColor = hexToRgba(color, 0.2);
+        dataset.borderColor = color;
+      }
       dataset.borderWidth = 2;
     });
   }
