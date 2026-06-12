@@ -1,3 +1,4 @@
+import type { Theme } from '../config/themes';
 
 export interface Chart {
   id: string;
@@ -27,7 +28,7 @@ export type ChartType =
   | 'bubble'
   | 'mixed';
 
-export type Theme = 'light' | 'dark';
+export type { Theme };
 
 export type AccessType = 'view' | 'embed' | 'png' | 'json';
 
