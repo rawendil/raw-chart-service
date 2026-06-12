@@ -1,5 +1,5 @@
 import { escapeHtml, escapeJsonForScript } from '../utils/html';
-import { THEMES, Theme } from '../config/themes';
+import { getThemeColors } from '../config/themes';
 
 export interface EmbedChart {
   title: string | null;
@@ -25,8 +25,7 @@ export function renderEmbedPage(chart: EmbedChart): string {
   const height = Math.trunc(chart.height);
   const payload = escapeJsonForScript(chart.chart_data);
 
-  // chart.theme is a validated value but typed as string from the DB; fall back to light for safety.
-  const themeColors = THEMES[chart.theme as Theme] ?? THEMES.light;
+  const themeColors = getThemeColors(chart.theme);
   const bgColor = themeColors.background;
   const fgColor = themeColors.text;
   const descColor = themeColors.mutedText;
