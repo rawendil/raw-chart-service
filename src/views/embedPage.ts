@@ -20,12 +20,12 @@ export interface EmbedChart {
 export function renderEmbedPage(chart: EmbedChart): string {
   const title = escapeHtml(chart.title || 'Chart');
   const description = chart.description ? escapeHtml(chart.description) : '';
-  const theme = escapeHtml(chart.theme);
   const chartType = escapeHtml(chart.chart_type);
   const width = Math.trunc(chart.width);
   const height = Math.trunc(chart.height);
   const payload = escapeJsonForScript(chart.chart_data);
 
+  // chart.theme is a validated value but typed as string from the DB; fall back to light for safety.
   const themeColors = THEMES[chart.theme as Theme] ?? THEMES.light;
   const bgColor = themeColors.background;
   const fgColor = themeColors.text;
@@ -65,8 +65,7 @@ export function renderEmbedPage(chart: EmbedChart): string {
 </head>
 <body>
   <div class="chart-container"
-       data-chart-type="${chartType}"
-       data-chart-theme="${theme}">
+       data-chart-type="${chartType}">
     <h1>${title}</h1>
     ${description ? `<p class="chart-description">${description}</p>` : ''}
     <canvas id="chartCanvas" width="${width}" height="${height}"></canvas>
