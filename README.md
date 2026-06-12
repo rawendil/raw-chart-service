@@ -106,22 +106,23 @@ curl -X POST http://localhost:3000/api/charts/generate \
 
 ### Adding a custom theme
 
-Themes are defined in one place — [src/config/themes.ts](./src/config/themes.ts). To add a theme
-(e.g. `"brand"`), add one entry to the `THEMES` map:
+**Built-in (in code):** themes live in [src/config/themes.ts](./src/config/themes.ts) (`BUILTIN_THEMES`). Add an entry there for a permanent, shipped theme. Validation and both renderers pick it up automatically. (The Swagger `theme` enum in the route annotations is a static list — update it there too if you want the new theme listed in the API docs.)
 
-```ts
-brand: {
-  background: '#0b1020', // page + chart background
-  text: '#e6e8ee',       // legend, axis ticks, embed heading
-  mutedText: '#9aa3b2',  // embed description
-  grid: '#243049',       // axis grid lines
-  palette: ['#7aa2ff', '#ff6b6b', '#34d399', '#fbbf24', '#a78bfa', '#f472b6'],
-},
+**Without a code change (deployment config):** set the `CUSTOM_THEMES` environment variable to a JSON object of themes. They are merged over the built-ins at startup (a custom theme with the same name overrides the built-in). Adding or changing a theme this way needs only a restart — no rebuild.
+
+```json
+{
+  "brand": {
+    "background": "#0b1020",
+    "text": "#e6e8ee",
+    "mutedText": "#9aa3b2",
+    "grid": "#243049",
+    "palette": ["#7aa2ff", "#ff6b6b", "#34d399", "#fbbf24", "#a78bfa", "#f472b6"]
+  }
+}
 ```
 
-Everything else derives from this map automatically: the `Theme` type, the request-validation
-enum, the Swagger enum, the PNG renderer, and the embed page (which injects the colors into the
-page for the browser script). No other file needs editing.
+Colors must be hex (`#rgb`/`#rrggbb`), `rgb(...)`, or `rgba(...)`; `palette` needs at least one color; theme names match `[a-z0-9_-]+`. An invalid `CUSTOM_THEMES` aborts startup with a clear error (fail-fast).
 
 ## Embed
 
