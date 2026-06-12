@@ -1,14 +1,11 @@
-// Single source of truth for chart theme colors. Add a theme = add one entry here;
-// the Theme type, validation enum, Swagger enum, and both render paths derive from this.
-export interface ThemeColors {
-  background: string; // page + chart background
-  text: string; // legend + axis ticks + embed page heading
-  mutedText: string; // embed page description
-  grid: string; // axis grid lines
-  palette: string[]; // dataset colors, cycled
-}
+import { env } from './env';
+import { ThemeColors } from './themeColors';
 
-export const THEMES = {
+export type { ThemeColors };
+
+// Built-in themes. CUSTOM_THEMES (env) is merged over these at startup; a custom theme with
+// the same name overrides the built-in.
+export const BUILTIN_THEMES = {
   light: {
     background: '#ffffff',
     text: '#000000',
@@ -25,6 +22,15 @@ export const THEMES = {
   },
 } satisfies Record<string, ThemeColors>;
 
-export type Theme = keyof typeof THEMES;
+// Effective registry: built-ins overlaid with operator-supplied themes.
+export const THEMES: Record<string, ThemeColors> = { ...BUILTIN_THEMES, ...env.CUSTOM_THEMES };
 
-export const THEME_NAMES = Object.keys(THEMES) as [Theme, ...Theme[]];
+// Theme names are dynamic (runtime config), so Theme is a plain string validated at the boundary.
+export type Theme = string;
+
+export const THEME_NAMES = Object.keys(THEMES);
+
+// Single accessor for renderers; falls back to light if an unknown name slips through.
+export function getThemeColors(name: string): ThemeColors {
+  return THEMES[name] ?? THEMES.light;
+}
