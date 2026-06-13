@@ -287,7 +287,7 @@ export class ChartGeneratorService {
             labels: {
               color: getThemeColors(options.theme).text,
               font: {
-                size: 18
+                size: 20
               }
             }
           },
@@ -296,7 +296,7 @@ export class ChartGeneratorService {
             text: options.title,
             color: getThemeColors(options.theme).text,
             font: {
-              size: 24,
+              size: 26,
               weight: 'bold'
             },
             padding: 20

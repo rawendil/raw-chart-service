@@ -98,7 +98,7 @@
           labels: {
             color: textColor,
             font: {
-              size: 18
+              size: 20
             }
           }
         },
