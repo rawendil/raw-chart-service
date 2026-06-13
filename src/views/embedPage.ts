@@ -52,7 +52,7 @@ export function renderEmbedPage(chart: EmbedChart): string {
     h1 {
       text-align: center;
       margin-bottom: 20px;
-      font-size: 30px;
+      font-size: 24px;
       font-weight: 600;
     }
     .chart-description {
