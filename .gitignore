@@ -229,3 +229,6 @@ webpack.dev.config.js
 
 # Turbo
 .turbo
+
+.mcp.json
+settings.json
