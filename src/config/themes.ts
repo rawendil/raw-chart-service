@@ -7,11 +7,13 @@ export type { ThemeColors };
 // the same name overrides the built-in.
 export const BUILTIN_THEMES = {
   light: {
+    // Brand palette (teal #13ada5). Mirrors the source project's light-mode --chart-1..5,
+    // text #0f2a2a, border #dde8e8.
     background: '#ffffff',
-    text: '#000000',
-    mutedText: '#666666',
-    grid: '#e5e7eb',
-    palette: ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'],
+    text: '#0f2a2a',
+    mutedText: '#5a6e6e',
+    grid: '#dde8e8',
+    palette: ['#13ada5', '#3b82f6', '#c98a12', '#7c6fd1', '#cf5f7e'],
   },
   dark: {
     background: '#1a1a1a',
