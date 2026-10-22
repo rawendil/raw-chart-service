@@ -7,6 +7,9 @@
 #   - no `env_file` / `.env` bind-mount — set every variable in Coolify's UI; they are
 #     wired into the app via the explicit `environment:` block below
 #   - logs go to a named volume instead of a host bind-mount
+#   - postgres/redis services have prefixed names: Coolify attaches the app to its shared `coolify`
+#     network, where Coolify's own coolify-db/coolify-redis also answer to `postgres`/`redis`.
+#     A generic name made DB/Redis DNS round-robin between this stack and Coolify's internals.
 #
 # Required env vars to set in Coolify (set as Runtime; no safe default): DB_PASSWORD, API_KEY.
 #   - DB_PASSWORD / API_KEY are referenced as plain ${VAR} (not ${VAR:?}) on purpose: Coolify
@@ -17,7 +20,7 @@
 # Set the app's public domain in Coolify and it will route to port 3000 automatically.
 
 services:
-  postgres:
+  rawchart-postgres:
     image: postgres:15-alpine
     restart: unless-stopped
     environment:
@@ -34,7 +37,7 @@ services:
       timeout: 5s
       retries: 5
 
-  redis:
+  rawchart-redis:
     image: redis:7-alpine
     restart: unless-stopped
     expose:
@@ -58,7 +61,7 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       PORT: 3000
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
-      DB_HOST: postgres
+      DB_HOST: rawchart-postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-rawchart_service}
       DB_USER: ${DB_USER:-postgres}
@@ -68,7 +71,7 @@ services:
       DB_CONNECTION_TIMEOUT: ${DB_CONNECTION_TIMEOUT:-2000}
       API_KEY: ${API_KEY}
       LOG_LEVEL: ${LOG_LEVEL:-info}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://rawchart-redis:6379
       CHROMIUM_PATH: /usr/bin/chromium-browser
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
       RATE_LIMIT_MAX_REQUESTS: ${RATE_LIMIT_MAX_REQUESTS:-100}
@@ -76,9 +79,9 @@ services:
       EXPIRED_CHART_CLEANUP_INTERVAL_MS: ${EXPIRED_CHART_CLEANUP_INTERVAL_MS:-3600000}
       EXPIRED_CHART_RETENTION_MS: ${EXPIRED_CHART_RETENTION_MS:-0}
     depends_on:
-      postgres:
+      rawchart-postgres:
         condition: service_healthy
-      redis:
+      rawchart-redis:
         condition: service_healthy
     volumes:
       - app_logs:/app/logs
